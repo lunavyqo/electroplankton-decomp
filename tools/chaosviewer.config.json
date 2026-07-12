@@ -1,0 +1,13 @@
+{
+  "name": "electroplankton-decomp",
+  "title": "Chaos Viewer",
+  "tagline": "Electroplankton matching decomp",
+  "github": "https://github.com/lunavyqo/electroplankton-decomp",
+  "language": "C",
+  "compiler": "mwccarm (version TBD — see notes/compiler.md). Trial flags (C): -O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc",
+  "setup": "clone {github} and follow CONTRIBUTING.md. Supply your own legally dumped Electroplankton .nds, unpack locally (dsd), place mwccarm under tools/mwccarm/ (gitignored).",
+  "verifyCommand": "python tools/match.py --c yourfile.c --func {name} --addr 0x{addrHex} --size 0x{sizeHex}",
+  "readFirst": "README.md, CONTRIBUTING.md, notes/compiler.md, notes/legal.md. Coordinate via CLAIMS.md.",
+  "rules": "only your own legally dumped ROM; never commit the ROM, its assets, or extracted binaries - the one deliberate exception is annotated disassembly TEXT of still-unmatched functions on the chaos-data branch (text, not bytes/assets), same practice as other decomp projects committing .s files; write all C from scratch.",
+  "dataUrl": "https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json"
+}

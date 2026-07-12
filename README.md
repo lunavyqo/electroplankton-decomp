@@ -8,6 +8,17 @@ This project is structured like other modern DS matching decomps (for example
 hand-written source live in git; the ROM and every extracted asset stay on your
 machine only.
 
+## Progress
+
+```
+Functions  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0.0%   0 / 1,950
+Code size  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0.0%   0 / 359,462 bytes
+```
+
+Live atlas (Chaos Viewer): paste the repo URL, or open with data preloaded:
+
+**https://tangosdev.github.io/chaos-viewer/?data=https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json**
+
 ## Legal and scope
 
 **This repo must contain only original work:** scripts, build/config metadata we
@@ -24,19 +35,24 @@ It must **not** contain:
 Those are read locally from a cartridge dump **you** own. They are listed in
 `.gitignore` on purpose. **Do not force-add them. Do not publish them.**
 
+**Exception (documented):** the `chaos-data` branch publishes function metadata and
+annotated **disassembly text** for unmatched functions so contributors can work
+without a full local setup. That is text, not ROM bytes or assets — the same
+practice as decomp projects committing `.s` files. Matched functions drop their
+disasm from the published data over time as `src/` grows.
+
 You are responsible for complying with the laws that apply to you. Owning a
 dump of a game you purchased is a common decomp setup; redistributing Nintendo
 assets is not.
 
 ## Target build
 
-Local dump metadata (for your machine only) currently matches:
-
 | Field    | Value         |
 |----------|---------------|
 | Title    | ELE PLANKTON  |
 | Game code| `ATIE`        |
 | Maker    | `01`          |
+| Modules  | arm9 only in atlas for now (no overlays) |
 
 Confirm your ROM against this before matching; other regions/revisions will
 differ.
@@ -45,36 +61,39 @@ differ.
 
 ```
 src/        # Hand-written, verified matching C (promote only after match)
-tools/      # Original project scripts (never commit mwccarm here)
-symbols/    # Symbol maps / name lists we author
-config/     # Project-owned analysis/rebuild config (optional)
-notes/      # Setup notes, codegen notes, research
-docs/       # Longer documentation / diagrams
+tools/      # Project scripts (mwccarm/ is gitignored — local symlink/copy)
+config/     # dsd analysis: symbols, relocs, delinks (committed)
+notes/      # Setup, compiler pin notes, legal
+docs/       # Longer documentation
 files/      # LOCAL ONLY — NitroFS extract (gitignored)
-arm7/ arm9/ # LOCAL ONLY — binaries gitignored; yaml configs may be tracked
+arm7/ arm9/ # LOCAL ONLY — binaries gitignored; small yaml may be tracked
 ```
-
-Your unpacked ROM may already sit at the repo root (dsd-style `config.yaml`,
-`arm9/`, `files/`, …). That is fine for local work. Git will refuse to track the
-copyrighted pieces via `.gitignore`.
 
 ## What "matching" means
 
 Source that, when compiled with the original toolchain, produces bytes identical
 to the retail binary for the function under test. A function counts as matched
-only after a byte-for-byte (relocation-aware) check against your local dump.
+only after a relocation-aware byte check against your local dump
+(`python tools/match.py …`).
 
 ## Setup (short)
 
 1. Own a legal Electroplankton DS dump (`.nds`).
-2. Keep it outside git history (already ignored as `*.nds`).
-3. Unpack locally with your preferred toolkit (e.g. [dsd](https://github.com/AetiasHax/ds-decomp) / ndstool).
-4. Install Python deps when tooling lands: `ndspy`, `capstone`, `pyelftools`, etc.
-5. Obtain mwccarm only from legitimate community toolchain channels; place it under
-   `tools/mwccarm/` (gitignored). Never commit it.
+2. Keep it outside git history (ignored as `*.nds`).
+3. Unpack locally (`dsd rom extract` / `python tools/unpack.py` / existing layout).
+4. `pip install ndspy capstone pyelftools`
+5. Place **mwccarm** under `tools/mwccarm/` and **wibo** under `tools/bin/`
+   (gitignored; never commit). See [notes/compiler.md](notes/compiler.md).
+6. Analysis already lives in `config/` for this tree; re-run if you change extract:
+   ```
+   dsd init -r config.yaml -o config -b build
+   ```
 
-Full contributor workflow will live in [CONTRIBUTING.md](CONTRIBUTING.md) as the
-toolchain solidifies.
+## Compiler status
+
+**Not pinned yet.** Matching uses a provisional default (`1.2/sp2p3` + common NDS
+flags) and `tools/match.py --sweep` to try many CodeWarrior versions. How we
+will pin the real one is documented in [notes/compiler.md](notes/compiler.md).
 
 ## Ground rules
 

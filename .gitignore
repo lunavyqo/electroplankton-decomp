@@ -33,6 +33,10 @@ build/
 build-*/
 out/
 output/
+# dsd delink/build products and local chaos regen
+/chaos-db.json
+/contributions.json
+/details/
 *.elf
 *.map
 *.o
@@ -143,13 +147,19 @@ dumps/
 *.raw
 
 # --- Proprietary / non-redistributable toolchain ---
-tools/mwccarm/
-tools/bin/
+# Match both directory trees and local symlinks (no trailing slash).
+/tools/mwccarm
+/tools/mwccarm/
+/tools/bin
+/tools/bin/
 mwccarm.zip
 license.dat
-*.dat
-!attribution.json
-!**/package-lock.json
+
+# --- Local atlas regen (published on chaos-data branch only) ---
+/chaos-db.json
+/contributions.json
+/details/
+/build/
 
 # --- Python / tooling noise ---
 __pycache__/
