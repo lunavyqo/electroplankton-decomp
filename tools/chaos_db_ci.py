@@ -55,14 +55,19 @@ def main() -> None:
                 continue
             name, size, addr = m.group(1), int(m.group(2), 16), int(m.group(3), 16)
             src_path = None
+            # Accept src/<name>.c or src/<module>/<name>.c (e.g. src/arm9/func_….c)
             for ext in ("c", "cpp"):
-                f = SRC / f"{name}.{ext}"
-                if f.is_file():
+                direct = SRC / f"{name}.{ext}"
+                if direct.is_file():
                     src_path = f"src/{name}.{ext}"
+                    break
+                hits = list(SRC.glob(f"**/{name}.{ext}"))
+                if hits:
+                    src_path = hits[0].relative_to(REPO).as_posix()
                     break
             matched = False
             if src_path:
-                head = (SRC / src_path.split("/", 1)[1]).read_text(errors="ignore")[:200]
+                head = (REPO / src_path).read_text(errors="ignore")[:200]
                 matched = "NONMATCHING" not in head
             total_b += size
             rec = {

@@ -7,6 +7,17 @@ matches even when the C is “right.”
 This project has **not** pinned a version yet. Tooling defaults to a provisional
 `1.2/sp2p3` (common for mid‑2000s NDS titles) and supports `--sweep` to try many.
 
+## Current pin (provisional → strong)
+
+| Field | Value |
+|-------|--------|
+| **Version** | **mwccarm `1.2/sp2p3`** |
+| **Flags** | `-O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc` |
+| Evidence | **8/8** independent hand-matched functions in PRs #1–#8 all pass `tools/match.py` with this version (addresses: `0x02001b44`, `0x020078a4`, `0x020092ac`, `0x0200c7ac`, `0x0201005c`, `0x02014bf0`, `0x0201c468`, `0x02023bfc`) |
+| Confidence | High for 1.2/sp2p3 — not a single lucky stub; real non-trivial functions |
+
+Default in `tools/match.py` and PR CI: `1.2/sp2p3`.
+
 ## What we already know
 
 | Clue | Value | Source |

@@ -39,12 +39,19 @@ def main() -> None:
             name, size = m.group(1), int(m.group(2), 16)
             total_n += 1
             total_b += size
+            found = None
             for ext in ("c", "cpp"):
-                f = SRC / f"{name}.{ext}"
-                if f.is_file() and "NONMATCHING" not in f.read_text(errors="ignore")[:200]:
-                    matched_n += 1
-                    matched_b += size
+                direct = SRC / f"{name}.{ext}"
+                if direct.is_file():
+                    found = direct
                     break
+                hits = list(SRC.glob(f"**/{name}.{ext}"))
+                if hits:
+                    found = hits[0]
+                    break
+            if found is not None and "NONMATCHING" not in found.read_text(errors="ignore")[:200]:
+                matched_n += 1
+                matched_b += size
 
     pf = 100.0 * matched_n / total_n if total_n else 0.0
     pb = 100.0 * matched_b / total_b if total_b else 0.0

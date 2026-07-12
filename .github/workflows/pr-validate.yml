@@ -1,0 +1,108 @@
+name: PR match validation
+
+# Byte-identical check for every changed src/**/*.c|cpp against the local ROM.
+# Requires a self-hosted runner that already has:
+#   - this repo checked out capability (Actions does checkout)
+#   - arm9/arm9.bin (and friends) present after checkout step restores them, OR
+#     pre-placed at $RUNNER_EP_EXTRACT / runner workspace cache
+#   - tools/mwccarm + tools/bin/wibo (gitignored; pre-installed on the runner)
+#
+# sm64ds uses a private relay + build box for the same reason: the ROM and
+# mwccarm cannot live in the public repo or on stock GitHub-hosted VMs.
+#
+# Setup once: repo Settings → Actions → Runners → New self-hosted runner,
+# then install it on the machine that has your Electroplankton dump + mwccarm.
+# Label the runner: ep-validate
+#
+# Until a self-hosted runner is online, this job stays queued (not a false green).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/**"
+      - "tools/match.py"
+      - "tools/pr_validate.py"
+      - "config/**"
+      - ".github/workflows/pr-validate.yml"
+
+concurrency:
+  group: pr-validate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: [self-hosted, ep-validate]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Restore local extract + toolchain paths
+        run: |
+          set -euo pipefail
+          # Prefer paths the runner admin configured via env; fall back to
+          # sibling layout used on the maintainer machine.
+          EXTRACT="${EP_EXTRACT_DIR:-}"
+          MWCC="${EP_MWCCARM_DIR:-}"
+          BIN="${EP_BIN_DIR:-}"
+          if [ -z "$EXTRACT" ] && [ -d "$HOME/Documents/SGH/electroplankton decomp/arm9" ]; then
+            EXTRACT="$HOME/Documents/SGH/electroplankton decomp"
+          fi
+          if [ -z "$MWCC" ] && [ -d "$HOME/Documents/SGH/SM64DS/tools/mwccarm" ]; then
+            MWCC="$HOME/Documents/SGH/SM64DS/tools/mwccarm"
+            BIN="$HOME/Documents/SGH/SM64DS/tools/bin"
+          fi
+          if [ -z "${EXTRACT}" ] || [ ! -f "${EXTRACT}/arm9/arm9.bin" ]; then
+            echo "arm9.bin not found. Set EP_EXTRACT_DIR on the runner to your unpack root."
+            exit 2
+          fi
+          # Copy only the binaries needed for match (never commit these).
+          mkdir -p arm9 arm7
+          cp -f "${EXTRACT}/arm9/arm9.bin" arm9/arm9.bin
+          cp -f "${EXTRACT}/arm7/arm7.bin" arm7/arm7.bin 2>/dev/null || true
+          if [ ! -e tools/mwccarm ]; then
+            ln -sfn "$MWCC" tools/mwccarm
+          fi
+          if [ ! -e tools/bin ] && [ -n "${BIN}" ]; then
+            ln -sfn "$BIN" tools/bin
+          fi
+          test -f arm9/arm9.bin
+          test -e tools/mwccarm/1.2/sp2p3/mwccarm.exe
+          python3 -c "import capstone, elftools; print('deps ok')"
+
+      - name: Validate changed sources match ROM
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          python3 tools/pr_validate.py --base "$BASE" --version 1.2/sp2p3
+
+      - name: Comment summary on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- ep-pr-validate -->';
+            const body = `${marker}
+            ### ❌ PR match validation failed
+
+            One or more changed \`src/**/*.c|cpp\` files did not compile to the
+            same bytes as the local ROM with mwccarm \`1.2/sp2p3\`.
+
+            Run locally:
+            \`\`\`bash
+            python tools/pr_validate.py --base origin/main
+            \`\`\`
+            `;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

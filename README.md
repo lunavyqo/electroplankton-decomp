@@ -91,9 +91,22 @@ only after a relocation-aware byte check against your local dump
 
 ## Compiler status
 
-**Not pinned yet.** Matching uses a provisional default (`1.2/sp2p3` + common NDS
-flags) and `tools/match.py --sweep` to try many CodeWarrior versions. How we
-will pin the real one is documented in [notes/compiler.md](notes/compiler.md).
+**Pinned in practice: mwccarm `1.2/sp2p3`** with standard NDS flags (8/8 early
+matches). Details: [notes/compiler.md](notes/compiler.md).
+
+## PR validation
+
+Every PR that touches `src/` should reproduce the ROM byte-for-byte:
+
+```bash
+python tools/pr_validate.py --base origin/main
+```
+
+GitHub Actions runs the same check on a **self-hosted** runner labeled
+`ep-validate` (ROM + mwccarm stay on that machine, never in the public repo).
+See `.github/workflows/pr-validate.yml`. Until that runner is registered, run
+the command locally before merging.
+
 
 ## Ground rules
 
