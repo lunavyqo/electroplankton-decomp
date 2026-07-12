@@ -116,3 +116,23 @@ Date: YYYY-MM-DD
 ```
 
 Until that exists, treat every match as **provisional** and re-check after the pin.
+
+## Provisional pin (2026-07-12)
+
+```
+Pinned (provisional): mwccarm 1.2/sp2p3
+Also matching:        1.2/base, 1.2/sp2 (same codegen on probes)
+Flags:  -O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc
+Evidence (8/8 MATCH via tools/match.py):
+  0x02001b44 size 0x28
+  0x020078a4 size 0x80
+  0x020092ac size 0x54
+  0x0200c7ac size 0x40
+  0x0201005c size 0x94
+  0x02014bf0 size 0xfc
+  0x0201c468 size 0x258
+  0x02023bfc size 0x68
+Date: 2026-07-12
+```
+
+`1.2/sp3`, `1.2/sp4`, and `2.0/*` diverged on the simple probe `func_02001b44`.
