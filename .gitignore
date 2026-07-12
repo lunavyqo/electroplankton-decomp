@@ -1,0 +1,209 @@
+# =============================================================================
+# COPYRIGHT / LEGAL — NEVER COMMIT ANY OF THIS
+# =============================================================================
+# This repo holds only original work: tooling, hand-written C, symbols, notes.
+# The ROM, NitroFS assets, and anything extracted from a cartridge dump stay
+# local. Do not force-add these patterns. Do not commit "just this one file."
+# =============================================================================
+
+# --- Retail ROM and dumps ---
+*.nds
+*.NDS
+*.dsi
+*.srl
+baserom*
+*.sav
+*.Sav
+*.SAV
+
+# --- Extracted code binaries (ARM9/ARM7/ITCM/DTCM/overlays) ---
+*.bin
+*.BIN
+arm7/*.bin
+arm9/*.bin
+**/overlay*.bin
+**/ov*.bin
+
+# --- Common extract / rebuild trees ---
+extracted/
+extract/
+rom/
+roms/
+build/
+build-*/
+out/
+output/
+*.elf
+*.map
+*.o
+*.a
+*.rlib
+*.dylib
+*.so
+*.exe
+*.dll
+
+# --- NitroFS game files (graphics, audio, data) ---
+# Entire dump of the ROM filesystem — 100% copyrighted game content.
+files/
+# If you ever unpack elsewhere, catch asset dumps by extension too:
+*.ntxf
+*.ntxp
+*.nbfc
+*.nbfp
+*.nbfs
+*.nsbmd
+*.nsbtx
+*.nsbca
+*.nsbta
+*.nsbtp
+*.nsbma
+*.narc
+*.carc
+*.sdat
+*.sbnk
+*.swar
+*.strm
+*.smft
+*.ssar
+*.bnr
+*.nclr
+*.ncgr
+*.ncer
+*.nanr
+*.nscr
+*.nftr
+
+# --- Audio ---
+*.wav
+*.WAV
+*.mp3
+*.ogg
+*.flac
+*.aiff
+*.mid
+*.midi
+
+# --- Images that came from the ROM (banner / header logo / screenshots of assets) ---
+banner/*.png
+banner/*.bmp
+banner/*.gif
+header_logo.png
+header_logo.bmp
+# Keep intentional project docs images under docs/ only; ignore root dumps:
+/*.png
+/*.bmp
+/*.jpg
+/*.jpeg
+/*.gif
+/*.tga
+/*.ico
+
+# --- Banner binary / icon data if generated ---
+banner/*.bin
+*.banner
+
+# --- dsd / ndstool extract products that enumerate ROM contents ---
+# path_order is a full NitroFS file list from the dump — keep local.
+path_order.txt
+# Header fields (title/gamecode) come from the ROM; keep local until you
+# re-author a clean project config under config/.
+header.yaml
+# Root config.yaml from a raw unpack points at local bins/assets; prefer a
+# cleaned copy under config/ when you are ready to track rebuild metadata.
+# Uncomment if you want the unpack config ignored too:
+# /config.yaml
+
+# --- Ghidra / IDA / Binary Ninja local databases (often embed binary data) ---
+ghidra_out/
+ghidra_projects/
+ghidra_targets.txt
+*.gpr
+*.rep
+*.idb
+*.i64
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+*.bndb
+*.bnproj
+*.r2
+*.rzdb
+
+# --- Disassembly / dumps derived from ROM bytes ---
+# Pure text asm for unmatched code is a gray area; keep regenerable dumps local
+# until you deliberately promote cleaned-up notes into the repo.
+asm/
+disasm/
+dumps/
+*.dump
+*.hex
+*.raw
+
+# --- Proprietary / non-redistributable toolchain ---
+tools/mwccarm/
+tools/bin/
+mwccarm.zip
+license.dat
+*.dat
+!attribution.json
+!**/package-lock.json
+
+# --- Python / tooling noise ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.egg-info/
+.eggs/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# --- Agent / AI scratch (unverified C must not land in src/) ---
+.agents/
+.codex/
+.cursor/
+.claude/
+scratch/
+/scratchpad/
+_abwork/
+match/auto/
+match/
+progress/
+vendor/
+reference/
+knowledge/
+
+# --- Local secrets / personal claim handles ---
+tools/claims_key.txt
+tools/claims_handle.txt
+*.pem
+*.key
+secrets/

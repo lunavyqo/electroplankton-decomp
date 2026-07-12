@@ -1,0 +1,23 @@
+version: Original
+title:
+  japanese: |-
+    ELECTROPLANKTON
+    Nintendo
+  english: |-
+    ELECTROPLANKTON
+    Nintendo
+  french: |-
+    ELECTROPLANKTON
+    Nintendo
+  german: |-
+    ELECTROPLANKTON
+    Nintendo
+  italian: |-
+    ELECTROPLANKTON
+    Nintendo
+  spanish: |-
+    ELECTROPLANKTON
+    Nintendo
+images:
+  bitmap_path: bitmap.png
+  palette_path: palette.png

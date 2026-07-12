@@ -1,0 +1,10 @@
+base_address: 33554432
+entry_function: 33556480
+build_info: 2888
+autoload_callback: 33557080
+overlay_signatures: 0
+encrypted: false
+compressed: false
+bss_start: 33971328
+bss_end: 34165024
+sdk_version: 33715504
