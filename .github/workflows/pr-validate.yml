@@ -71,8 +71,6 @@ jobs:
             # shellcheck disable=SC2086
             $RSYNC_RSH "$EP_MAC_SSH" "$@"
           }
-
-          # Quote paths with spaces for remote env(1)
           q() { printf '%q' "$1"; }
 
           ssh_mac "echo mac_ok; test -f $(q "$EP_MAC_REPO/arm9/arm9.bin"); test -d $(q "$EP_MAC_MWCC")"
@@ -82,8 +80,8 @@ jobs:
 
           rsync -az --delete ./ "${EP_MAC_SSH}:${REMOTE_DIR}/"
 
-          # Write a small remote script to avoid env+space quoting pitfalls
-          ssh_mac "cat > $(q "$REMOTE_DIR/run_validate.sh")" <<REMOTE
+          # Remote script avoids env(1) + space-in-path bugs
+          ssh_mac "cat > $(q "$REMOTE_DIR/run_validate.sh")" <<EOF
           #!/bin/bash
           set -euo pipefail
           cd $(q "$REMOTE_DIR")
@@ -95,5 +93,5 @@ jobs:
           ln -sfn $(q "$EP_MAC_BIN") tools/bin
           python3 tools/pr_validate.py --base $(q "$BASE") --version 1.2/sp2p3
           rm -rf $(q "$REMOTE_DIR")
-          REMOTE
+          EOF
           ssh_mac "bash $(q "$REMOTE_DIR/run_validate.sh")"
