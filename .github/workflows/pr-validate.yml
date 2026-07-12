@@ -3,14 +3,12 @@ name: PR match validation
 # Byte-check every changed src/**/*.c|cpp against the ROM.
 #
 # Architecture (Pi + Mac):
-#   - Raspberry Pi runs the self-hosted Actions runner 24/7 (label ep-validate,pi).
-#   - mwccarm is a Windows x86 PE — does not run on Pi ARM (qemu nested PE fails).
-#   - Linux runners SSH to the Mac mini and run match there (wibo + mwcc native).
-#   - A Mac-local runner with the same label also works (runs match locally).
+#   - Raspberry Pi hosts the always-on Actions runner (label ep-validate).
+#   - mwccarm cannot run on Pi ARM; Linux runners SSH to the Mac for match.
+#   - Mac-local runners with the same label run match in-process.
 #
-# Pi → Mac SSH uses key ~/.ssh/id_ed25519_ep_mac on the Pi.
-# Mac must have Remote Login on and that pubkey in ~/.ssh/authorized_keys.
-# ROM + mwcc live only on the Mac (never committed).
+# Pi SSH key: ~/.ssh/id_ed25519_ep_mac → Mac authorized_keys
+# ROM + mwcc stay on the Mac only.
 
 on:
   pull_request:
@@ -65,64 +63,35 @@ jobs:
 
           echo "Linux runner ($(uname -m)) — SSH match to $EP_MAC_SSH"
           SSH_KEY="${HOME}/.ssh/id_ed25519_ep_mac"
-          RSH=(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
+          export RSYNC_RSH="ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new"
           if [ -f "$SSH_KEY" ]; then
-            RSH+=(-i "$SSH_KEY")
+            RSYNC_RSH="$RSYNC_RSH -i $SSH_KEY"
           fi
+          ssh_mac() {
+            # shellcheck disable=SC2086
+            $RSYNC_RSH "$EP_MAC_SSH" "$@"
+          }
+          q() { printf '%q' "$1"; }
 
-          # Prove Mac is reachable before rsync
-          "${RSH[@]}" "$EP_MAC_SSH" "echo mac_ok; test -f \"$EP_MAC_REPO/arm9/arm9.bin\"; test -d \"$EP_MAC_MWCC\""
+          ssh_mac "echo mac_ok; test -f $(q "$EP_MAC_REPO/arm9/arm9.bin"); test -d $(q "$EP_MAC_MWCC")"
 
           REMOTE_DIR="/tmp/ep-pr-validate-${RUN_ID}"
-          "${RSH[@]}" "$EP_MAC_SSH" "rm -rf '$REMOTE_DIR' && mkdir -p '$REMOTE_DIR'"
+          ssh_mac "rm -rf $(q "$REMOTE_DIR") && mkdir -p $(q "$REMOTE_DIR")"
 
-          # Prefer rsync; fall back to tar-over-ssh
-          if command -v rsync >/dev/null; then
-            rsync -az --delete \
-              -e "${RSH[*]}" \
-              ./ "${EP_MAC_SSH}:${REMOTE_DIR}/"
-          else
-            tar czf - . | "${RSH[@]}" "$EP_MAC_SSH" "mkdir -p '$REMOTE_DIR' && tar xzf - -C '$REMOTE_DIR'"
-          fi
+          rsync -az --delete ./ "${EP_MAC_SSH}:${REMOTE_DIR}/"
 
-          "${RSH[@]}" "$EP_MAC_SSH" \
-            env REMOTE_DIR="$REMOTE_DIR" BASE="$BASE" \
-                EP_MAC_REPO="$EP_MAC_REPO" EP_MAC_MWCC="$EP_MAC_MWCC" EP_MAC_BIN="$EP_MAC_BIN" \
-            bash -s <<'REMOTE'
+          # Remote script avoids env(1) + space-in-path bugs
+          ssh_mac "cat > $(q "$REMOTE_DIR/run_validate.sh")" <<EOF
+          #!/bin/bash
           set -euo pipefail
-          cd "$REMOTE_DIR"
+          cd $(q "$REMOTE_DIR")
           mkdir -p arm9 arm7
-          cp -f "$EP_MAC_REPO/arm9/arm9.bin" arm9/arm9.bin
-          cp -f "$EP_MAC_REPO/arm7/arm7.bin" arm7/arm7.bin 2>/dev/null || true
+          cp -f $(q "$EP_MAC_REPO/arm9/arm9.bin") arm9/arm9.bin
+          cp -f $(q "$EP_MAC_REPO/arm7/arm7.bin") arm7/arm7.bin 2>/dev/null || true
           rm -f tools/mwccarm tools/bin
-          ln -sfn "$EP_MAC_MWCC" tools/mwccarm
-          ln -sfn "$EP_MAC_BIN" tools/bin
-          python3 tools/pr_validate.py --base "$BASE" --version 1.2/sp2p3
-          rm -rf "$REMOTE_DIR"
-          REMOTE
-
-      - name: Comment summary on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const marker = '<!-- ep-pr-validate -->';
-            const body = `${marker}
-            ### ❌ PR match validation failed
-
-            Changed \`src/**/*.c|cpp\` did not reproduce the ROM with mwccarm \`1.2/sp2p3\`.
-
-            Local check:
-            \`\`\`bash
-            python tools/pr_validate.py --base origin/main
-            \`\`\`
-            `;
-            const { owner, repo } = context.repo;
-            const issue_number = context.payload.pull_request.number;
-            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number, body });
-            }
+          ln -sfn $(q "$EP_MAC_MWCC") tools/mwccarm
+          ln -sfn $(q "$EP_MAC_BIN") tools/bin
+          python3 tools/pr_validate.py --base $(q "$BASE") --version 1.2/sp2p3
+          rm -rf $(q "$REMOTE_DIR")
+          EOF
+          ssh_mac "bash $(q "$REMOTE_DIR/run_validate.sh")"
