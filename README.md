@@ -94,18 +94,17 @@ only after a relocation-aware byte check against your local dump
 **Pinned in practice: mwccarm `1.2/sp2p3`** with standard NDS flags (8/8 early
 matches). Details: [notes/compiler.md](notes/compiler.md).
 
-## PR validation
+## Checking matches locally
 
-Every PR that touches `src/` should reproduce the ROM byte-for-byte:
+Before merging matched C, verify against your own dump:
 
 ```bash
 python tools/pr_validate.py --base origin/main
+# or one file:
+python tools/match.py --c src/arm9/func_….c --func NAME --addr 0x… --size 0x… --version 1.2/sp2p3
 ```
 
-GitHub Actions runs the same check on a **self-hosted** runner labeled
-`ep-validate` (ROM + mwccarm stay on that machine, never in the public repo).
-See `.github/workflows/pr-validate.yml`. Until that runner is registered, run
-the command locally before merging.
+There is no cloud match CI for now (ROM + mwccarm stay on your machine only).
 
 
 ## Ground rules
