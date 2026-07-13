@@ -1,0 +1,8 @@
+{"id":"arm9:0x02001a64","module":"arm9","addr":33561188,"name":"func_02001a64","srcPath":"src/arm9/func_02001a64.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001a80","module":"arm9","addr":33561216,"name":"func_02001a80","srcPath":"src/arm9/func_02001a80.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001a9c","module":"arm9","addr":33561244,"name":"func_02001a9c","srcPath":"src/arm9/func_02001a9c.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001ab8","module":"arm9","addr":33561272,"name":"func_02001ab8","srcPath":"src/arm9/func_02001ab8.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001ad4","module":"arm9","addr":33561300,"name":"func_02001ad4","srcPath":"src/arm9/func_02001ad4.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001af0","module":"arm9","addr":33561328,"name":"func_02001af0","srcPath":"src/arm9/func_02001af0.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001b0c","module":"arm9","addr":33561356,"name":"func_02001b0c","srcPath":"src/arm9/func_02001b0c.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
+{"id":"arm9:0x02001b28","module":"arm9","addr":33561384,"name":"func_02001b28","srcPath":"src/arm9/func_02001b28.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build","by":"grok"}}
