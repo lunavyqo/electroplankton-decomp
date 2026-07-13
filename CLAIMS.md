@@ -8,6 +8,7 @@ drop the claim.
 | Module | Range (inclusive) | Claimant | Date (UTC) | Status | Notes |
 |--------|-------------------|----------|------------|--------|-------|
 | arm9   | 0x02000eb4–0x02001133 | grok | 2026-07-12 | done | heap/file cluster 0eb4-10d8 MATCH 1.2/sp2p3 |
+| arm9   | 0x02001a64–0x02001b43 | grok | 2026-07-13 | done | tail-call wrappers 1a64-1b28 MATCH 1.2/sp2p3 |
 | arm9   | 0x02001b44–0x02001b6b | grok | 2026-07-12 | done | func_02001b44 MATCH 1.2/sp2p3 |
 | arm9   | 0x020078a4–0x02007923 | grok | 2026-07-12 | done | func_020078a4 MATCH 1.2/sp2p3 |
 | arm9   | 0x020092ac–0x020092ff | grok | 2026-07-12 | done | func_020092ac MATCH 1.2/sp2p3 |
