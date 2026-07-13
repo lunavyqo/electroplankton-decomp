@@ -18,6 +18,7 @@ drop the claim.
 | arm9   | 0x02014bf0–0x02014ceb | grok | 2026-07-12 | done | func_02014bf0 MATCH 1.2/sp2p3 |
 | arm9   | 0x0201c468–0x0201c6bf | grok | 2026-07-12 | done | func_0201c468 MATCH 1.2/sp2p3 |
 | arm9   | 0x02023bfc–0x02023c63 | grok | 2026-07-12 | done | func_02023bfc MATCH 1.2/sp2p3 |
+| arm9   | 0x020565ec–0x0205680b | grok | 2026-07-13 | done | soft-float cmp family 565ec-567d0 MATCH 1.2/sp2p3 |
 
 ## How to claim
 
