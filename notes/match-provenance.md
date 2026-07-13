@@ -46,8 +46,15 @@ python tools/chaos_db_ci.py
 
 Sets `author` + `matchProvenance` from the ledger on matched functions.
 
+## Attempt history (every try)
+
+Final bank is not enough. **Every** matching iteration (including no progress)
+goes to `config/match_attempts.jsonl` via `tools/log_attempt.py`.
+See **notes/match-attempts.md**.
+
 ## Tests
 
 ```bash
 python tools/test_match_provenance.py
+python tools/test_match_attempts.py
 ```
