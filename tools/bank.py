@@ -48,6 +48,7 @@ _TOOLS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
+from match_attempts import append_attempt  # noqa: E402
 from match_provenance import (  # noqa: E402
     ProvenanceError,
     append_ledger_row,
@@ -349,6 +350,24 @@ def main() -> None:
     print(
         f"Banked {row['id']}: author={who} how={json_dumps(row['matchProvenance'])}"
     )
+    # Full attempt log: every bank is also a matched attempt.
+    try:
+        append_attempt(
+            module=module,
+            addr=addr,
+            name=name,
+            status="matched",
+            kind=args.kind,
+            model=args.model,
+            reasoning=args.reasoning,
+            harness=args.harness,
+            author=args.author,
+            src_path=src_rel,
+            note="banked",
+        )
+        print("Logged attempt status=matched → config/match_attempts.jsonl")
+    except ProvenanceError as e:
+        print(f"WARNING: banked but failed to log attempt: {e}", file=sys.stderr)
     print("OK — regenerate atlas with: python tools/chaos_db_ci.py")
 
 
