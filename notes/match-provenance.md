@@ -1,68 +1,42 @@
-# Match provenance (experimental)
-
-Every **successful match** must permanently record **how** it was matched, per
-function. This is experimental atlas tracking for electroplankton-decomp only.
+# Match provenance (experimental) — who vs how
 
 ## Rules
 
-| Case | Required |
-|------|----------|
-| **Human** | `kind: human` (optional `by`, optional `note`) |
-| **AI** | `kind: ai` with **all three** non-empty: `model`, `reasoning`, `harness` |
+| Field | Meaning |
+|-------|---------|
+| **`author`** | **Who** matched it (GitHub login). Classic chaos-viewer credit / colors. |
+| **`matchProvenance`** | **How** it was matched only. |
 
-Missing or incomplete AI provenance is a **bug**. Do not bank without a complete
-record.
+| how kind | Required |
+|----------|----------|
+| **human** | `kind: human` (optional `note`) |
+| **ai** | `kind: ai` + non-empty **model**, **reasoning**, **harness** (slugs) |
 
-`author` (git / contributor color) is **not** a substitute for provenance.
+Do **not** put the operator inside `matchProvenance` (no `by`). Use `author`.
 
-### Token form
+## Ledger
 
-Banking tools **slugify** display names:
+`config/match_provenance.jsonl` — one JSON object per line; last `id` wins.
 
-| Input | Stored |
-|-------|--------|
-| `Grok 4.5` | `grok-4.5` |
-| `Grok Build` | `grok-build` |
-| `claude-opus-4` | `claude-opus-4` |
-
-Prefer writing slugs directly. Spaces are allowed on the CLI and normalized.
-
-## Durable store
-
-```
-config/match_provenance.jsonl
+```json
+{"id":"arm9:0x02001a64","module":"arm9","addr":33561188,"name":"func_02001a64","author":"lunavyqo","srcPath":"src/arm9/func_02001a64.c","matchProvenance":{"kind":"ai","model":"grok-4.5","reasoning":"high","harness":"grok-build"}}
 ```
 
-One JSON object per line. Last row for a given `id` wins.
+Legacy rows with `matchProvenance.by` still load: `by` is migrated to `author`.
 
 ## Banking
 
 ```bash
-# From the repo (or pass --repo always if tools were copied elsewhere)
 python tools/bank.py --src src/arm9/func_02001a64.c \
-  --kind ai --model "Grok 4.5" --reasoning high --harness "Grok Build" \
-  --by lunavyqo --no-verify
+  --kind ai --author lunavyqo \
+  --model "Grok 4.5" --reasoning high --harness "Grok Build" \
+  --no-verify
 
-# Explicit root (fixes /tmp script copies)
-python /tmp/ep-bank-tools/bank.py --repo "$PWD" \
-  --src src/arm9/func_02001a64.c --kind human --by lunavyqo --no-verify
-
-# Env alternative
-export DECOMP_ROOT=/path/to/electroplankton-decomp
-python /tmp/ep-bank-tools/bank.py --src src/arm9/func_….c --kind human --by you
+# --by is an alias for --author
+python tools/bank.py --src … --kind human --by lunavyqo --no-verify
 ```
 
-| Flag | Meaning |
-|------|---------|
-| `--repo` | Decomp root (also `DECOMP_ROOT` / `MATCH_REPO`) |
-| `--model` | Model id (slugified) |
-| `--reasoning` | Effort/level (`high` / `medium` / `low` / `none` / …) |
-| `--harness` | Pipeline id (slugified) |
-| `--dry-run` | Print resolved REPO + provenance; no write |
-| `--no-verify` | Skip `match.py` (operator asserts already matched) |
-| `--force` | Append even if id already has a ledger row |
-
-Incomplete AI → exit code **2**, no ledger write.
+Display names are slugified (`Grok 4.5` → `grok-4.5`). Use `--repo` if scripts run from `/tmp`.
 
 ## Atlas
 
@@ -70,17 +44,10 @@ Incomplete AI → exit code **2**, no ledger write.
 python tools/chaos_db_ci.py
 ```
 
-Copies ledger `matchProvenance` onto matched functions. Warns for matched funcs
-missing a ledger row.
+Sets `author` + `matchProvenance` from the ledger on matched functions.
 
 ## Tests
 
 ```bash
 python tools/test_match_provenance.py
 ```
-
-## Non-goals
-
-- Changing chaos-viewer-cli / default convention atlases
-- Attempt history for failed runs
-- Secrets, API keys, or full chat transcripts in the atlas

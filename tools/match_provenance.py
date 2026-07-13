@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
-"""Match provenance: validation + durable ledger for experimental atlas tracking.
+"""Match method provenance + durable ledger for experimental atlas tracking.
 
-Canonical per-match record (stored in config/match_provenance.jsonl, re-emitted
-as matchProvenance on matched functions in chaos-db.json):
+WHO (credit / contributor colors) = classic function field `author` (GitHub login).
+HOW  (method)                     = matchProvenance only:
 
-  human:  {"kind":"human", "by"?: str, "note"?: str}
-  ai:     {"kind":"ai", "model": str, "reasoning": str, "harness": str, "by"?: str}
+  human:  {"kind":"human", "note"?: str}
+  ai:     {"kind":"ai", "model": str, "reasoning": str, "harness": str}
 
-AI records require non-empty model, reasoning, and harness. Incomplete AI
-provenance is a bug — bank() must refuse to complete.
+Ledger row (config/match_provenance.jsonl):
+  {id, module, addr, name, author?, srcPath?, matchProvenance}
 
-Token form (after normalize):
-  - spaces → hyphens
-  - model / reasoning / harness lowercased for stable ids
-  - GOOD: grok-4.5, claude-opus-4, grok-build
-  - BAD (pre-normalize): "Grok 4.5", "Grok Build"  — accepted, then slugified
+AI how-records require non-empty model, reasoning, harness.
+Legacy matchProvenance.by is migrated into row.author on load, then dropped.
 
-Repo root discovery (does not rely only on __file__):
-  1. --repo / DECOMP_ROOT / MATCH_REPO
-  2. walk up from cwd for markers (tools/match.py + config/)
-  3. walk up from this file's directory
+Token form (after normalize): spaces → hyphens, lowercased.
+  GOOD: grok-4.5, grok-build   BAD display: "Grok 4.5" (auto-slugified)
+
+Repo root: --repo / DECOMP_ROOT / MATCH_REPO / cwd walk / __file__ walk.
 """
 from __future__ import annotations
 
@@ -192,12 +189,11 @@ def validate_match_provenance(rec: Any) -> Optional[str]:
         for k, v in rec.items():
             if k == "kind":
                 continue
+            # `by` is legacy (credit → author); allow on input, stripped in normalize.
             if k not in ("by", "note"):
                 return f"human provenance unknown field: {k!r}"
             if v is not None and not isinstance(v, str):
                 return f"human.{k} must be a string"
-            if isinstance(v, str) and not v.strip() and k == "by":
-                return "human.by must be non-empty when present"
         return None
 
     for req in ("model", "reasoning", "harness"):
@@ -222,24 +218,20 @@ def validate_match_provenance(rec: Any) -> Optional[str]:
             f"ai.harness invalid token: {harness!r} "
             f"(try {sug!r}; lowercase slug, no spaces)"
         )
-    if "by" in rec and rec["by"] is not None:
-        if not isinstance(rec["by"], str) or not rec["by"].strip():
-            return "ai.by must be a non-empty string when present"
     for k in rec:
+        # legacy `by` tolerated on input
         if k not in ("kind", "model", "reasoning", "harness", "by"):
             return f"ai provenance unknown field: {k!r}"
     return None
 
 
 def normalize_provenance(rec: dict) -> dict:
-    """Slugify AI tokens, then validate. Raises ProvenanceError."""
+    """Slugify AI tokens; strip legacy `by` (credit lives on author). Raises ProvenanceError."""
     if not isinstance(rec, dict):
         raise ProvenanceError("matchProvenance must be an object")
     kind = (rec.get("kind") or "").strip().lower()
     if kind == "human":
         out: dict[str, Any] = {"kind": "human"}
-        if rec.get("by"):
-            out["by"] = str(rec["by"]).strip()
         if rec.get("note"):
             out["note"] = str(rec["note"]).strip()
         err = validate_match_provenance(out)
@@ -247,19 +239,14 @@ def normalize_provenance(rec: dict) -> dict:
             raise ProvenanceError(err)
         return out
     if kind == "ai":
-        try:
-            out = {
-                "kind": "ai",
-                "model": slugify_token(str(rec.get("model") or ""), field="model"),
-                "reasoning": slugify_token(
-                    str(rec.get("reasoning") or ""), field="reasoning"
-                ),
-                "harness": slugify_token(str(rec.get("harness") or ""), field="harness"),
-            }
-        except ProvenanceError:
-            raise
-        if rec.get("by"):
-            out["by"] = str(rec["by"]).strip()
+        out = {
+            "kind": "ai",
+            "model": slugify_token(str(rec.get("model") or ""), field="model"),
+            "reasoning": slugify_token(
+                str(rec.get("reasoning") or ""), field="reasoning"
+            ),
+            "harness": slugify_token(str(rec.get("harness") or ""), field="harness"),
+        }
         err = validate_match_provenance(out)
         if err:
             raise ProvenanceError(err)
@@ -292,12 +279,15 @@ def load_ledger(path: Optional[pathlib.Path] = None) -> dict[str, dict]:
         prov = row.get("matchProvenance") or row.get("provenance")
         if prov is None:
             raise ProvenanceError(f"{path}:{line_no}: missing matchProvenance")
-        # Normalize so older display-name rows still load if slugifiable.
+        # Credit: row.author, or migrate legacy matchProvenance.by → author.
+        author = row.get("author")
+        if not author and isinstance(prov, dict) and prov.get("by"):
+            author = str(prov["by"]).strip() or None
         try:
             clean = normalize_provenance(prov)
         except ProvenanceError as e:
             raise ProvenanceError(f"{path}:{line_no}: {e}") from e
-        by_id[str(rid)] = {
+        entry = {
             "id": str(rid),
             "module": row.get("module"),
             "addr": row.get("addr"),
@@ -305,6 +295,9 @@ def load_ledger(path: Optional[pathlib.Path] = None) -> dict[str, dict]:
             "srcPath": row.get("srcPath"),
             "matchProvenance": clean,
         }
+        if author:
+            entry["author"] = author
+        by_id[str(rid)] = entry
     return by_id
 
 
@@ -329,19 +322,25 @@ def append_ledger_row(
     name: str,
     provenance: dict,
     src_path: Optional[str] = None,
+    author: Optional[str] = None,
     path: Optional[pathlib.Path] = None,
 ) -> dict:
-    """Validate, append one JSONL row, return the row. Raises ProvenanceError."""
+    """Validate, append one JSONL row, return the row. Raises ProvenanceError.
+
+    `author` is classic chaos-viewer credit (GitHub login). `provenance` is how only.
+    """
     path = path or ledger_path()
     prov = normalize_provenance(provenance)
     rid = make_id(module, addr)
-    row = {
+    row: dict[str, Any] = {
         "id": rid,
         "module": module,
         "addr": int(addr),
         "name": name,
         "matchProvenance": prov,
     }
+    if author and str(author).strip():
+        row["author"] = str(author).strip()
     if src_path:
         row["srcPath"] = src_path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -356,26 +355,25 @@ def provenance_from_cli_args(
     model: Optional[str] = None,
     reasoning: Optional[str] = None,
     harness: Optional[str] = None,
-    by: Optional[str] = None,
     note: Optional[str] = None,
 ) -> dict:
-    """Build a provenance object from CLI-style fields. Raises ProvenanceError."""
+    """Build a how-only provenance object from CLI fields. Raises ProvenanceError.
+
+    Operator credit is not part of provenance — pass `author` to append_ledger_row.
+    """
     kind = (kind or "").strip().lower()
     if kind == "human":
         rec: dict[str, Any] = {"kind": "human"}
-        if by:
-            rec["by"] = by
         if note:
             rec["note"] = note
         return normalize_provenance(rec)
     if kind == "ai":
-        rec = {
-            "kind": "ai",
-            "model": model or "",
-            "reasoning": reasoning or "",
-            "harness": harness or "",
-        }
-        if by:
-            rec["by"] = by
-        return normalize_provenance(rec)
+        return normalize_provenance(
+            {
+                "kind": "ai",
+                "model": model or "",
+                "reasoning": reasoning or "",
+                "harness": harness or "",
+            }
+        )
     raise ProvenanceError(f'kind must be "human" or "ai", got {kind!r}')

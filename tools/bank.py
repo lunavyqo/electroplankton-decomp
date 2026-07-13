@@ -19,19 +19,20 @@ Examples:
   python tools/bank.py --src src/arm9/func_02001b44.c \\
       --kind human --by lunavyqo
 
-  # AI match: display names are slugified (Grok 4.5 → grok-4.5)
+  # AI match: --author = classic credit; model/harness = how (slugs)
   python tools/bank.py --src src/arm9/func_0200abcd.c --kind ai \\
+      --author lunavyqo \\
       --model "Grok 4.5" --reasoning high --harness "Grok Build" --no-verify
 
   # From a tools copy outside the tree:
   python /tmp/ep-bank-tools/bank.py --repo /path/to/electroplankton-decomp \\
-      --src src/arm9/func_0200abcd.c --kind ai \\
+      --src src/arm9/func_0200abcd.c --kind ai --author lunavyqo \\
       --model grok-4.5 --reasoning high --harness grok-build --no-verify
 
   # Verify + promote scratch → src + ledger
   python tools/bank.py --c scratch/foo.c --func func_0200abcd \\
-      --kind ai --model claude-opus-4 --reasoning high --harness cursor-agent \\
-      --promote
+      --kind ai --author lunavyqo --model claude-opus-4 --reasoning high \\
+      --harness cursor-agent --promote
 """
 from __future__ import annotations
 
@@ -179,8 +180,13 @@ def main() -> None:
         "--harness",
         help="AI harness/pipeline id (required for ai). Spaces ok; slugified (Grok Build → grok-build)",
     )
-    ap.add_argument("--by", help="Operator handle (optional)")
-    ap.add_argument("--note", help="Human note (optional)")
+    ap.add_argument(
+        "--author",
+        "--by",
+        dest="author",
+        help="Classic credit: GitHub login → function.author (not matchProvenance)",
+    )
+    ap.add_argument("--note", help="Optional note on human how-record only")
     ap.add_argument(
         "--promote",
         action="store_true",
@@ -215,7 +221,6 @@ def main() -> None:
             model=args.model,
             reasoning=args.reasoning,
             harness=args.harness,
-            by=args.by,
             note=args.note,
         )
     except ProvenanceError as e:
@@ -274,7 +279,8 @@ def main() -> None:
     if args.dry_run:
         print(f"dry-run id={rid} name={name} module={module} addr=0x{addr:08x}")
         print(f"dry-run src={src_path} c={c_path}")
-        print(f"dry-run provenance={json_dumps(prov)}")
+        print(f"dry-run author={args.author!r}  (classic credit field)")
+        print(f"dry-run matchProvenance={json_dumps(prov)}  (how only)")
         print("dry-run: no ledger write")
         return
 
@@ -337,8 +343,12 @@ def main() -> None:
         name=name,
         provenance=prov,
         src_path=src_rel,
+        author=args.author,
     )
-    print(f"Banked provenance {row['id']}: {json_dumps(row['matchProvenance'])}")
+    who = row.get("author") or "(no author)"
+    print(
+        f"Banked {row['id']}: author={who} how={json_dumps(row['matchProvenance'])}"
+    )
     print("OK — regenerate atlas with: python tools/chaos_db_ci.py")
 
 
