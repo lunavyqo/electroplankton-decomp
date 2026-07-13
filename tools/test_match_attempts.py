@@ -32,12 +32,47 @@ class AttemptNormalize(unittest.TestCase):
                 "model": "Grok 4.5",
                 "reasoning": "high",
                 "harness": "Grok Build",
+                "sessionScope": "focused",
+                "batchSize": 1,
             }
         )
         self.assertEqual(r["status"], "no_progress")
         self.assertEqual(r["model"], "grok-4.5")
         self.assertEqual(r["harness"], "grok-build")
         self.assertFalse(r["improvedNearMiss"])
+        self.assertEqual(r["sessionScope"], "focused")
+        self.assertEqual(r["batchSize"], 1)
+
+    def test_batch_scope(self):
+        r = normalize_attempt(
+            {
+                "id": "arm9:0x1",
+                "module": "arm9",
+                "addr": 1,
+                "name": "f",
+                "status": "matched",
+                "kind": "human",
+                "sessionScope": "batch",
+                "batchSize": 8,
+            }
+        )
+        self.assertEqual(r["sessionScope"], "batch")
+        self.assertEqual(r["batchSize"], 8)
+
+    def test_batch_requires_size(self):
+        with self.assertRaises(ProvenanceError):
+            normalize_attempt(
+                {
+                    "id": "arm9:0x1",
+                    "module": "arm9",
+                    "addr": 1,
+                    "name": "f",
+                    "status": "no_progress",
+                    "kind": "human",
+                    "sessionScope": "batch",
+                    "batchSize": 1,
+                }
+            )
 
     def test_improved_near_miss_inferred(self):
         r = normalize_attempt(
@@ -101,6 +136,8 @@ class AttemptLog(unittest.TestCase):
                 model="m",
                 reasoning="high",
                 harness="h",
+                session_scope="batch",
+                batch_size=4,
                 path=path,
             )
             append_attempt(
@@ -114,6 +151,7 @@ class AttemptLog(unittest.TestCase):
                 harness="h",
                 divergences=4,
                 prev_best_divergences=4,
+                session_scope="focused",
                 path=path,
             )
             append_attempt(
@@ -126,15 +164,20 @@ class AttemptLog(unittest.TestCase):
                 reasoning="high",
                 harness="h",
                 author="alice",
+                session_scope="focused",
                 path=path,
             )
             rows = load_attempts(path)
             self.assertEqual(len(rows), 3)
             self.assertEqual(rows[0]["status"], "no_progress")
+            self.assertEqual(rows[0]["sessionScope"], "batch")
             self.assertEqual(rows[2]["status"], "matched")
+            self.assertEqual(rows[2]["sessionScope"], "focused")
             st = attempt_stats(rows)
             self.assertEqual(st["total"], 3)
             self.assertEqual(st["byStatus"]["no_progress"], 1)
+            self.assertEqual(st["matchedFocused"], 1)
+            self.assertEqual(st["bySessionScope"]["batch"], 1)
 
 
 if __name__ == "__main__":

@@ -76,6 +76,19 @@ def main() -> None:
         help="Override improvedNearMiss (default: compare divergences vs --prev-best)",
     )
     ap.add_argument("--label", help="Batch / session label")
+    ap.add_argument(
+        "--session-scope",
+        choices=("focused", "batch"),
+        default=None,
+        help="focused = solo session for this function; batch = multi-function session",
+    )
+    ap.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        dest="batch_size",
+        help="Functions in this matching session (1 ⇒ focused, >=2 ⇒ batch if scope unset)",
+    )
     ap.add_argument("--note")
     ap.add_argument(
         "--stats",
@@ -135,6 +148,8 @@ def main() -> None:
             src_path=src_rel,
             label=args.label,
             note=args.note,
+            session_scope=args.session_scope,
+            batch_size=args.batch_size,
         )
     except ProvenanceError as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -142,6 +157,7 @@ def main() -> None:
 
     print(
         f"Logged attempt {row['id']} status={row['status']} "
+        f"scope={row.get('sessionScope')} batchSize={row.get('batchSize')} "
         f"improved={row.get('improvedNearMiss')} kind={row['kind']}"
     )
     if args.stats:

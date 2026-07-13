@@ -25,8 +25,14 @@ Record (minimal):
     "improvedNearMiss": false,
     "srcPath": "scratch/…",    # optional path to attempt C
     "label": "batch-3",        # optional batch / session label
+    "sessionScope": "focused", # focused | batch  (required for new records)
+    "batchSize": 1,            # how many functions in this matching session
     "note": "optional short note"
   }
+
+sessionScope:
+  focused — this session was only about this function (batchSize should be 1)
+  batch   — this function was one of several in the same matching session
 
 Do not embed full c_source here (size). Point srcPath or keep drafts elsewhere.
 """
@@ -39,12 +45,9 @@ from typing import Any, Optional
 
 from match_provenance import (
     ProvenanceError,
-    configure,
-    ledger_path,
     make_id,
     normalize_provenance,
     repo as get_repo,
-    slugify_token,
 )
 
 STATUSES = frozenset(
@@ -57,6 +60,8 @@ STATUSES = frozenset(
         "skipped",
     }
 )
+
+SESSION_SCOPES = frozenset({"focused", "batch"})
 
 
 def attempts_path() -> pathlib.Path:
@@ -108,15 +113,21 @@ def validate_attempt(rec: dict) -> Optional[str]:
     if "improvedNearMiss" in rec and rec["improvedNearMiss"] is not None:
         if not isinstance(rec["improvedNearMiss"], bool):
             return "improvedNearMiss must be bool"
+    scope = rec.get("sessionScope")
+    if scope is not None and str(scope).strip().lower() not in SESSION_SCOPES:
+        return f"sessionScope must be focused|batch, got {scope!r}"
+    if rec.get("batchSize") is not None:
+        try:
+            bs = int(rec["batchSize"])
+            if bs < 1:
+                return "batchSize must be >= 1"
+        except (TypeError, ValueError):
+            return "batchSize must be int"
     return None
 
 
 def normalize_attempt(rec: dict) -> dict:
     """Clean + validate. Raises ProvenanceError."""
-    err = validate_attempt(rec)
-    if err:
-        # still try to slugify for better errors after normalize fields
-        pass
     out: dict[str, Any] = {
         "ts": rec.get("ts") or utc_now_iso(),
         "id": str(rec["id"]),
@@ -160,6 +171,40 @@ def normalize_attempt(rec: dict) -> dict:
         out["label"] = str(rec["label"]).strip()
     if rec.get("note"):
         out["note"] = str(rec["note"]).strip()
+
+    # Session focus: focused (solo) vs batch (multi-function context).
+    # Infer when missing: batchSize==1 → focused, batchSize>1 → batch.
+    scope_raw = rec.get("sessionScope")
+    batch_size = rec.get("batchSize")
+    if batch_size is not None:
+        batch_size = int(batch_size)
+    if scope_raw is not None and str(scope_raw).strip():
+        scope = str(scope_raw).strip().lower()
+    elif batch_size is not None:
+        scope = "focused" if batch_size <= 1 else "batch"
+    else:
+        # Legacy rows without the field: leave unset after validate? Prefer require
+        # for new writes via append_attempt default.
+        scope = None
+    if scope is not None:
+        if scope not in SESSION_SCOPES:
+            raise ProvenanceError(f"sessionScope must be focused|batch, got {scope!r}")
+        out["sessionScope"] = scope
+        if batch_size is None:
+            batch_size = 1 if scope == "focused" else batch_size
+        if scope == "focused" and batch_size is None:
+            batch_size = 1
+        if scope == "focused" and batch_size is not None and batch_size != 1:
+            # Focused means solo context; coerce size to 1 with note-friendly consistency.
+            batch_size = 1
+        if scope == "batch" and (batch_size is None or batch_size < 2):
+            raise ProvenanceError(
+                "sessionScope=batch requires batchSize >= 2 "
+                "(or use sessionScope=focused for a single-function session)"
+            )
+    if batch_size is not None:
+        out["batchSize"] = int(batch_size)
+
     err = validate_attempt(out)
     if err:
         raise ProvenanceError(err)
@@ -183,6 +228,8 @@ def append_attempt(
     src_path: Optional[str] = None,
     label: Optional[str] = None,
     note: Optional[str] = None,
+    session_scope: Optional[str] = None,
+    batch_size: Optional[int] = None,
     ts: Optional[str] = None,
     path: Optional[pathlib.Path] = None,
 ) -> dict:
@@ -215,6 +262,18 @@ def append_attempt(
         rec["label"] = label
     if note:
         rec["note"] = note
+    # Default new writes to focused if unspecified (safer than guessing multi).
+    if session_scope is not None:
+        rec["sessionScope"] = session_scope
+    elif batch_size is not None:
+        rec["sessionScope"] = "focused" if int(batch_size) <= 1 else "batch"
+    else:
+        rec["sessionScope"] = "focused"
+        rec["batchSize"] = 1
+    if batch_size is not None:
+        rec["batchSize"] = batch_size
+    elif rec.get("sessionScope") == "focused":
+        rec["batchSize"] = 1
     clean = normalize_attempt(rec)
     out = path or attempts_path()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -250,14 +309,27 @@ def load_attempts(
 def attempt_stats(rows: list[dict]) -> dict[str, Any]:
     """Aggregate counts for a list of attempt rows."""
     by_status: dict[str, int] = {}
+    by_scope: dict[str, int] = {}
     improved = 0
+    matched_focused = 0
+    matched_batch = 0
     for r in rows:
         s = r.get("status") or "?"
         by_status[s] = by_status.get(s, 0) + 1
+        scope = r.get("sessionScope") or "unknown"
+        by_scope[scope] = by_scope.get(scope, 0) + 1
         if r.get("improvedNearMiss"):
             improved += 1
+        if r.get("status") == "matched":
+            if scope == "focused":
+                matched_focused += 1
+            elif scope == "batch":
+                matched_batch += 1
     return {
         "total": len(rows),
         "byStatus": by_status,
+        "bySessionScope": by_scope,
         "improvedNearMiss": improved,
+        "matchedFocused": matched_focused,
+        "matchedBatch": matched_batch,
     }

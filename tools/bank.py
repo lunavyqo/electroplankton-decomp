@@ -208,6 +208,19 @@ def main() -> None:
         action="store_true",
         help="Print resolved repo, paths, and provenance; do not write ledger",
     )
+    ap.add_argument(
+        "--session-scope",
+        choices=("focused", "batch"),
+        default=None,
+        help="Was this match from a solo (focused) or multi-function (batch) session?",
+    )
+    ap.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        dest="batch_size",
+        help="Functions in the matching session (default 1=focused)",
+    )
     args = ap.parse_args()
 
     try:
@@ -364,6 +377,8 @@ def main() -> None:
             author=args.author,
             src_path=src_rel,
             note="banked",
+            session_scope=args.session_scope,
+            batch_size=args.batch_size,
         )
         print("Logged attempt status=matched → config/match_attempts.jsonl")
     except ProvenanceError as e:
