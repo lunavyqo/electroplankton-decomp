@@ -1,28 +1,33 @@
 // addr 0x02056714 size 0x44
-// Soft-float compare setting APSR (signaling / unordered-NaN path).
-// On NaN: adds 0xff000000 + 0x10000000 into r2 (flags), return.
-// Both ±0: set Z and return. Else cmp with sign-aware operand order.
+// Soft-float ordered compare that leaves APSR flags set.
+// Unordered (NaN): r2 = 0xff000000 + 0x10000000 with flags from adds.
+// Both ±0: set Z. Else cmp with sign-aware operand swap.
 //
-//   // Flag-returning helper; no clean bool C equivalent under mwcc -O4,p.
+// NEAR MISS — flag-returning helper; pure C does not leave cmp flags as
+// the sole result under this pin (needs call/return bool shape instead).
+// Not matched — do not bank as MATCH until verify passes.
+//
+// Semantic sketch only (does not match bytes):
+//   if either NaN: set unordered flags; return
+//   if both ±0: equal; return
+//   if either negative: cmp(b, a); else cmp(a, b)
 
-asm void func_02056714(unsigned a, unsigned b) {
-    mov r3, #0xff000000
-    cmp r3, r0, lsl #1
-    cmphs r3, r1, lsl #1
-    bhs ordered
-    mov r2, #0xff000000
-    adds r2, r2, #0x10000000
-    bx lr
-ordered:
-    orr r3, r0, r1
-    movs r3, r3, lsl #1
-    cmpeq r0, r0
-    bxeq lr
-    orrs r2, r0, r1
-    bmi neg
-    cmp r0, r1
-    bx lr
-neg:
-    cmp r1, r0
-    bx lr
+void func_02056714(unsigned a, unsigned b) {
+    unsigned lim = 0xFF000000u;
+    unsigned t;
+
+    if (lim < (a << 1) || lim < (b << 1)) {
+        t = 0xFF000000u;
+        t += 0x10000000u;
+        (void)t;
+        return;
+    }
+    if (((a | b) << 1) == 0) {
+        return;
+    }
+    if ((int)(a | b) < 0) {
+        (void)(b < a);
+    } else {
+        (void)(a < b);
+    }
 }

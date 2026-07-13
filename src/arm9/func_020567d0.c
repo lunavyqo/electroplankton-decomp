@@ -1,25 +1,26 @@
 // addr 0x020567d0 size 0x3c
-// Soft-float compare setting APSR (quiet NaN path: early return on NaN).
-// Both ±0: set Z. Else cmp with sign-aware operand order.
+// Soft-float ordered compare → APSR (quiet NaN: early return, no special r2).
 //
-//   // Flag-returning helper; no clean bool C equivalent under mwcc -O4,p.
+// NEAR MISS — flag-returning helper; pure C under this pin does not match.
+// Not matched — do not bank as MATCH until verify passes.
+//
+// Semantic sketch only (does not match bytes):
+//   if either NaN: return (flags from last NaN check)
+//   if both ±0: equal; return
+//   if either negative: cmp(b, a); else cmp(a, b)
 
-asm void func_020567d0(unsigned a, unsigned b) {
-    mov r3, #0xff000000
-    cmp r3, r0, lsl #1
-    cmphs r3, r1, lsl #1
-    bhs ordered
-    bx lr
-ordered:
-    orr r3, r0, r1
-    movs r3, r3, lsl #1
-    cmpeq r0, r0
-    bxeq lr
-    orrs r2, r0, r1
-    bmi neg
-    cmp r0, r1
-    bx lr
-neg:
-    cmp r1, r0
-    bx lr
+void func_020567d0(unsigned a, unsigned b) {
+    unsigned lim = 0xFF000000u;
+
+    if (lim < (a << 1) || lim < (b << 1)) {
+        return;
+    }
+    if (((a | b) << 1) == 0) {
+        return;
+    }
+    if ((int)(a | b) < 0) {
+        (void)(b < a);
+    } else {
+        (void)(a < b);
+    }
 }

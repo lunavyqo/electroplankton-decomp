@@ -1,28 +1,27 @@
 // addr 0x0205669c size 0x3c
-// Soft-float < : NaN → false; map signed float bits then signed int compare.
+// Soft-float <  (NaN → false; map float bits to ordered ints, then <).
 //
-//   int func_0205669c(int a, int b) {
-//       unsigned lim = 0xFF000000u;
-//       if (lim < ((unsigned)a << 1) || lim < ((unsigned)b << 1)) return 0;
-//       if (a < 0) { a &= ~0x80000000; a = -a; }
-//       if (b < 0) { b &= ~0x80000000; b = -b; }
-//       return a < b;
-//   }
+// NEAR MISS under mwccarm 1.2/sp2p3 -O4,p:
+//   target uses cmphs + bicmi/rsbmi (60 bytes)
+//   this C uses split NaN checks + biclt/rsblt (72 bytes)
+// MWCC was not observed to emit cmphs or bicmi from pure C in this pin.
+// Not matched — do not bank as MATCH until verify passes.
 
-asm int func_0205669c(int a, int b) {
-    mov r3, #0xff000000
-    cmp r3, r0, lsl #1
-    cmphs r3, r1, lsl #1
-    movlo r0, #0
-    bxlo lr
-    cmp r0, #0
-    bicmi r0, r0, #0x80000000
-    rsbmi r0, r0, #0
-    cmp r1, #0
-    bicmi r1, r1, #0x80000000
-    rsbmi r1, r1, #0
-    cmp r0, r1
-    movlt r0, #1
-    movge r0, #0
-    bx lr
+int func_0205669c(int a, int b) {
+    unsigned lim = 0xFF000000u;
+    if (lim < ((unsigned)a << 1)) {
+        return 0;
+    }
+    if (lim < ((unsigned)b << 1)) {
+        return 0;
+    }
+    if (a < 0) {
+        a &= ~0x80000000;
+        a = -a;
+    }
+    if (b < 0) {
+        b &= ~0x80000000;
+        b = -b;
+    }
+    return a < b;
 }
