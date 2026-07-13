@@ -36,9 +36,21 @@ This is separate from:
   "improvedNearMiss": false,
   "srcPath": "scratch/try3.c",
   "label": "session-12",
+  "sessionScope": "focused",
+  "batchSize": 1,
   "note": "optional"
 }
 ```
+
+### sessionScope (context focus)
+
+| Value | Meaning |
+|-------|---------|
+| **`focused`** | Matching session was **only for this function** (solo / dedicated context) |
+| **`batch`** | Function was one of **several** in the same session (`batchSize` ≥ 2) |
+
+Theory: focused sessions give denser context and may land matches more often —
+track both so you can measure it. Always set `sessionScope` + `batchSize`.
 
 ### status
 
@@ -58,22 +70,24 @@ This is separate from:
 ## CLI
 
 ```bash
-# Every dead-end try still goes here
+# Dead end in a multi-function batch
 python tools/log_attempt.py \
   --func func_02001a64 --module arm9 --addr 0x02001a64 \
   --status no_progress --kind ai \
   --model grok-4.5 --reasoning high --harness grok-build \
-  --author lunavyqo --note "no change"
+  --author lunavyqo --session-scope batch --batch-size 8 \
+  --note "no change"
 
-# Near-miss that did not beat best
+# Focused solo near-miss that did not beat best
 python tools/log_attempt.py --func func_02001a64 \
   --status near_miss --divergences 6 --prev-best 4 \
   --kind ai --model grok-4.5 --reasoning high --harness grok-build \
-  --stats
+  --session-scope focused --batch-size 1 --stats
 
-# Bank success also logs status=matched
+# Bank success also logs status=matched (pass scope)
 python tools/bank.py --src src/arm9/func_….c --kind ai --author you \
-  --model … --reasoning … --harness … --no-verify
+  --model … --reasoning … --harness … --no-verify \
+  --session-scope focused --batch-size 1
 ```
 
 ## Tests
