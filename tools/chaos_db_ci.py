@@ -119,6 +119,9 @@ def main() -> None:
                 row = ledger.get(fid)
                 if row and row.get("matchProvenance"):
                     rec["matchProvenance"] = row["matchProvenance"]
+                    # Classic who-credit (separate from how-provenance).
+                    if row.get("author"):
+                        rec["author"] = row["author"]
                 else:
                     missing_prov.append(fid)
             functions.append(rec)

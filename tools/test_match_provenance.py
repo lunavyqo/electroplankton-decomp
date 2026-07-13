@@ -91,15 +91,29 @@ class ValidateProvenance(unittest.TestCase):
         )
         self.assertEqual(p["model"], "grok-4.5")
         self.assertEqual(p["harness"], "grok-build")
+        self.assertNotIn("by", p)
 
     def test_cli_ai_incomplete_raises(self):
         with self.assertRaises(ProvenanceError):
             provenance_from_cli_args(kind="ai", model="m", reasoning=None, harness="h")
 
     def test_cli_human_ok(self):
-        p = provenance_from_cli_args(kind="human", by="alice")
+        p = provenance_from_cli_args(kind="human", note="hand")
         self.assertEqual(p["kind"], "human")
-        self.assertEqual(p["by"], "alice")
+        self.assertEqual(p.get("note"), "hand")
+        self.assertNotIn("by", p)
+
+    def test_normalize_strips_legacy_by(self):
+        p = normalize_provenance(
+            {
+                "kind": "ai",
+                "model": "x",
+                "reasoning": "high",
+                "harness": "h",
+                "by": "should-not-stay",
+            }
+        )
+        self.assertNotIn("by", p)
 
 
 class RepoDiscovery(unittest.TestCase):
@@ -150,7 +164,8 @@ class LedgerAndAtlas(unittest.TestCase):
                 module="arm9",
                 addr=0x02001B44,
                 name="func_02001b44",
-                provenance={"kind": "human", "by": "tester"},
+                provenance={"kind": "human"},
+                author="tester",
                 src_path="src/arm9/func_02001b44.c",
                 path=path,
             )
@@ -164,6 +179,7 @@ class LedgerAndAtlas(unittest.TestCase):
                     "reasoning": "high",
                     "harness": "Grok Build",
                 },
+                author="lunavyqo",
                 src_path="src/arm9/func_020092ac.c",
                 path=path,
             )
@@ -172,10 +188,13 @@ class LedgerAndAtlas(unittest.TestCase):
             self.assertEqual(
                 led[make_id("arm9", 0x02001B44)]["matchProvenance"]["kind"], "human"
             )
+            self.assertEqual(led[make_id("arm9", 0x02001B44)]["author"], "tester")
             ai = led[make_id("arm9", 0x020092AC)]["matchProvenance"]
             self.assertEqual(ai["kind"], "ai")
             self.assertEqual(ai["model"], "grok-4.5")
             self.assertEqual(ai["harness"], "grok-build")
+            self.assertNotIn("by", ai)
+            self.assertEqual(led[make_id("arm9", 0x020092AC)]["author"], "lunavyqo")
 
     def test_load_rejects_incomplete_ai(self):
         with tempfile.TemporaryDirectory() as td:
