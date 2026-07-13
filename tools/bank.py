@@ -211,15 +211,15 @@ def main() -> None:
     ap.add_argument(
         "--session-scope",
         choices=("focused", "batch"),
-        default=None,
-        help="Was this match from a solo (focused) or multi-function (batch) session?",
+        required=True,
+        help="REQUIRED: solo (focused) or multi-function (batch) matching session",
     )
     ap.add_argument(
         "--batch-size",
         type=int,
         default=None,
         dest="batch_size",
-        help="Functions in the matching session (default 1=focused)",
+        help="Functions in the session (1 if focused; required ≥2 if batch)",
     )
     args = ap.parse_args()
 

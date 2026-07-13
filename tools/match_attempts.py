@@ -78,9 +78,13 @@ def validate_attempt(rec: dict) -> Optional[str]:
     """Return None if ok, else error string."""
     if not isinstance(rec, dict):
         return "attempt must be an object"
-    for req in ("id", "module", "name", "status", "kind"):
+    # Core fields on every run (same tier as model/harness for AI).
+    for req in ("id", "module", "name", "status", "kind", "sessionScope", "batchSize"):
         if req not in rec or rec[req] in (None, ""):
-            return f"attempt missing {req!r}"
+            return (
+                f"attempt missing {req!r} "
+                f"(sessionScope+batchSize required on every run, like model/harness)"
+            )
     if rec["status"] not in STATUSES:
         return f"status must be one of {sorted(STATUSES)}, got {rec['status']!r}"
     kind = str(rec["kind"]).strip().lower()
@@ -113,16 +117,19 @@ def validate_attempt(rec: dict) -> Optional[str]:
     if "improvedNearMiss" in rec and rec["improvedNearMiss"] is not None:
         if not isinstance(rec["improvedNearMiss"], bool):
             return "improvedNearMiss must be bool"
-    scope = rec.get("sessionScope")
-    if scope is not None and str(scope).strip().lower() not in SESSION_SCOPES:
-        return f"sessionScope must be focused|batch, got {scope!r}"
-    if rec.get("batchSize") is not None:
-        try:
-            bs = int(rec["batchSize"])
-            if bs < 1:
-                return "batchSize must be >= 1"
-        except (TypeError, ValueError):
-            return "batchSize must be int"
+    scope = str(rec.get("sessionScope", "")).strip().lower()
+    if scope not in SESSION_SCOPES:
+        return f"sessionScope must be focused|batch, got {rec.get('sessionScope')!r}"
+    try:
+        bs = int(rec["batchSize"])
+        if bs < 1:
+            return "batchSize must be >= 1"
+        if scope == "focused" and bs != 1:
+            return "sessionScope=focused requires batchSize=1"
+        if scope == "batch" and bs < 2:
+            return "sessionScope=batch requires batchSize >= 2"
+    except (TypeError, ValueError):
+        return "batchSize must be int"
     return None
 
 
@@ -172,38 +179,39 @@ def normalize_attempt(rec: dict) -> dict:
     if rec.get("note"):
         out["note"] = str(rec["note"]).strip()
 
-    # Session focus: focused (solo) vs batch (multi-function context).
-    # Infer when missing: batchSize==1 → focused, batchSize>1 → batch.
+    # Session focus — required every run (same expectation as model/harness).
+    # Infer only when one of the two is provided.
     scope_raw = rec.get("sessionScope")
     batch_size = rec.get("batchSize")
-    if batch_size is not None:
+    if batch_size is not None and batch_size != "":
         batch_size = int(batch_size)
+    else:
+        batch_size = None
     if scope_raw is not None and str(scope_raw).strip():
         scope = str(scope_raw).strip().lower()
     elif batch_size is not None:
         scope = "focused" if batch_size <= 1 else "batch"
     else:
-        # Legacy rows without the field: leave unset after validate? Prefer require
-        # for new writes via append_attempt default.
-        scope = None
-    if scope is not None:
-        if scope not in SESSION_SCOPES:
-            raise ProvenanceError(f"sessionScope must be focused|batch, got {scope!r}")
-        out["sessionScope"] = scope
-        if batch_size is None:
-            batch_size = 1 if scope == "focused" else batch_size
-        if scope == "focused" and batch_size is None:
+        raise ProvenanceError(
+            "sessionScope required on every attempt (focused|batch), "
+            "same as model/harness for AI runs"
+        )
+    if scope not in SESSION_SCOPES:
+        raise ProvenanceError(f"sessionScope must be focused|batch, got {scope!r}")
+    if batch_size is None:
+        if scope == "focused":
             batch_size = 1
-        if scope == "focused" and batch_size is not None and batch_size != 1:
-            # Focused means solo context; coerce size to 1 with note-friendly consistency.
-            batch_size = 1
-        if scope == "batch" and (batch_size is None or batch_size < 2):
-            raise ProvenanceError(
-                "sessionScope=batch requires batchSize >= 2 "
-                "(or use sessionScope=focused for a single-function session)"
-            )
-    if batch_size is not None:
-        out["batchSize"] = int(batch_size)
+        else:
+            raise ProvenanceError("sessionScope=batch requires batchSize >= 2")
+    if scope == "focused":
+        batch_size = 1
+    elif batch_size < 2:
+        raise ProvenanceError(
+            "sessionScope=batch requires batchSize >= 2 "
+            "(use sessionScope=focused for a single-function session)"
+        )
+    out["sessionScope"] = scope
+    out["batchSize"] = int(batch_size)
 
     err = validate_attempt(out)
     if err:
@@ -262,18 +270,12 @@ def append_attempt(
         rec["label"] = label
     if note:
         rec["note"] = note
-    # Default new writes to focused if unspecified (safer than guessing multi).
+    # sessionScope is required every run (like model/harness). Callers must pass it
+    # or pass batch_size so we can infer focused vs batch.
     if session_scope is not None:
         rec["sessionScope"] = session_scope
-    elif batch_size is not None:
-        rec["sessionScope"] = "focused" if int(batch_size) <= 1 else "batch"
-    else:
-        rec["sessionScope"] = "focused"
-        rec["batchSize"] = 1
     if batch_size is not None:
         rec["batchSize"] = batch_size
-    elif rec.get("sessionScope") == "focused":
-        rec["batchSize"] = 1
     clean = normalize_attempt(rec)
     out = path or attempts_path()
     out.parent.mkdir(parents=True, exist_ok=True)

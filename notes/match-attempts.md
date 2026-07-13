@@ -42,15 +42,17 @@ This is separate from:
 }
 ```
 
-### sessionScope (context focus)
+### sessionScope (required every run — like model/harness)
 
 | Value | Meaning |
 |-------|---------|
 | **`focused`** | Matching session was **only for this function** (solo / dedicated context) |
 | **`batch`** | Function was one of **several** in the same session (`batchSize` ≥ 2) |
 
-Theory: focused sessions give denser context and may land matches more often —
-track both so you can measure it. Always set `sessionScope` + `batchSize`.
+**Required on every attempt**, not only on successful banks — same expectation as
+`model` / `harness` for AI runs. Missing `sessionScope` is a validation error.
+
+Theory: focused sessions give denser context and may land matches more often.
 
 ### status
 

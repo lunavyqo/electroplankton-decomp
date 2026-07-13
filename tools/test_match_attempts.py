@@ -83,6 +83,8 @@ class AttemptNormalize(unittest.TestCase):
                 "name": "f",
                 "status": "near_miss",
                 "kind": "human",
+                "sessionScope": "focused",
+                "batchSize": 1,
                 "divergences": 2,
                 "prevBestDivergences": 5,
             }
@@ -101,6 +103,8 @@ class AttemptNormalize(unittest.TestCase):
                 "model": "x",
                 "reasoning": "low",
                 "harness": "h",
+                "sessionScope": "focused",
+                "batchSize": 1,
                 "divergences": 8,
                 "prevBestDivergences": 3,
             }
@@ -118,7 +122,23 @@ class AttemptNormalize(unittest.TestCase):
                     "status": "failed",
                     "kind": "ai",
                     "model": "x",
+                    "sessionScope": "focused",
+                    "batchSize": 1,
                     # missing reasoning/harness
+                }
+            )
+
+    def test_session_scope_required(self):
+        with self.assertRaises(ProvenanceError):
+            normalize_attempt(
+                {
+                    "id": "arm9:0x1",
+                    "module": "arm9",
+                    "addr": 1,
+                    "name": "f",
+                    "status": "no_progress",
+                    "kind": "human",
+                    # missing sessionScope
                 }
             )
 

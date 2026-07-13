@@ -79,15 +79,15 @@ def main() -> None:
     ap.add_argument(
         "--session-scope",
         choices=("focused", "batch"),
-        default=None,
-        help="focused = solo session for this function; batch = multi-function session",
+        required=True,
+        help="REQUIRED every run: focused = solo session; batch = multi-function session",
     )
     ap.add_argument(
         "--batch-size",
         type=int,
         default=None,
         dest="batch_size",
-        help="Functions in this matching session (1 ⇒ focused, >=2 ⇒ batch if scope unset)",
+        help="REQUIRED for batch (≥2); defaults to 1 when --session-scope=focused",
     )
     ap.add_argument("--note")
     ap.add_argument(
