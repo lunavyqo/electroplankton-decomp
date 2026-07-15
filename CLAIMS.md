@@ -22,6 +22,7 @@ drop the claim.
 | arm9   | 0x020565ec–0x0205680b | grok | 2026-07-13 | active | soft-float cmp family — pure C near-miss (codegen wall) |
 | arm9   | 0x02057900–0x02058447 | lunavyqo | 2026-07-13 | done | runtime div+static: 57900/57ab0/57cbc/57eb8/583fc/58400/58408/58410 MATCH 1.2/sp2p3 |
 | arm9   | 0x02006154–0x0200740f | lunavyqo | 2026-07-15 | active | pure C: 4/8 MATCH (6154,625c,6534,66f4); near: 65d4 div3, 6860 div4, 6a10/6d90 drafts |
+| arm9   | 0x02052c44–0x02054e27 | lunavyqo | 2026-07-15 | done | batch8: scalbn/rem_pio2/k_rem_pio2/k_cos/k_sin/atan+init 52c44/52e10 MATCH 1.2/sp2p3 |
 
 ## How to claim
 
