@@ -1,5 +1,4 @@
 // addr 0x020066f4 size 0xf0
-// NONMATCHING: table/idx/flag regalloc only (div=5); logic/size match
 
 typedef struct {
     char pad[0xa7e];
@@ -16,12 +15,10 @@ extern unsigned char data_02070cac[];
 void func_0200571c(void);
 
 void func_020066f4(void) {
-    unsigned char idx = data_020708a4.idx;
-    unsigned char flag = data_020708a4.flag;
-    int val = data_02070cac[idx];
     unsigned char st;
+    int val = data_02070cac[data_020708a4.idx];
 
-    if (flag != 0) {
+    if (data_020708a4.flag != 0) {
         data_020708a4.state = 0;
         return;
     }

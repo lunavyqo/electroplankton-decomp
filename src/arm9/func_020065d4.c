@@ -1,5 +1,5 @@
 // addr 0x020065d4 size 0x120
-// NONMATCHING: first store regalloc r0/r1 vs target r2/r3 (div=3)
+// NONMATCHING: first store regalloc only (div=3): ldr/mov/str use r0/r1 vs target r2/r3; rest of function byte-identical
 
 typedef struct {
     int field00;
