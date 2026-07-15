@@ -1,45 +1,33 @@
 // addr 0x02056cac size 0x8c
-// _d_fgt — double > (NaN → false); entry branches into 0x2056c2c (MWCC soft-float runtime)
-void ext_02056c2c(void);
-asm void func_02056cac()
-{
-    b ext_02056c2c
-    mov ip, #0x200000
-    cmn ip, r1, lsl #1
-    bhs loc_02056d04
-    cmn ip, r3, lsl #1
-    bhs loc_02056d20
-loc_02056cc4:
-    orrs ip, r3, r1
-    bmi loc_02056ce0
-    cmp r1, r3
-    cmpeq r0, r2
-    movhi r0, #1
-    movls r0, #0
-    bx lr
-loc_02056ce0:
-    orr ip, r0, ip, lsl #1
-    orrs ip, ip, r2
-    moveq r0, #0
-    bxeq lr
-    cmp r3, r1
-    cmpeq r2, r0
-    movhi r0, #1
-    movls r0, #0
-    bx lr
-loc_02056d04:
-    movne r0, #0
-    bxne lr
-    cmp r0, #0
-    movhi r0, #0
-    bxhi lr
-    cmn ip, r3, lsl #1
-    blo loc_02056cc4
-loc_02056d20:
-    movne r0, #0
-    bxne lr
-    cmp r2, #0
-    movhi r0, #0
-    bxhi lr
-    b loc_02056cc4
+// Soft-float double > (NaN → false).
+//
+// NONMATCHING: (div=58) multi-entry / shared-body runtime; pure C of ordered compare.
+
+int func_02056cac(unsigned alo, unsigned ahi, unsigned blo, unsigned bhi) {
+    unsigned ae = (ahi >> 20) & 0x7ffu;
+    unsigned be = (bhi >> 20) & 0x7ffu;
+    if ((ae == 0x7ffu && ((ahi << 12) | alo) != 0) ||
+        (be == 0x7ffu && ((bhi << 12) | blo) != 0)) {
+        return 0;
+    }
+    /* signed magnitude compare of (hi,lo) pairs */
+    {
+        int neg_a = (int)ahi < 0;
+        int neg_b = (int)bhi < 0;
+        unsigned ahm = ahi & ~0x80000000u;
+        unsigned bhm = bhi & ~0x80000000u;
+        int cmp;
+        if (neg_a != neg_b) {
+            cmp = neg_a ? -1 : 1;
+        } else if (ahm != bhm) {
+            cmp = (ahm < bhm) ? -1 : 1;
+            if (neg_a) cmp = -cmp;
+        } else if (alo != blo) {
+            cmp = (alo < blo) ? -1 : 1;
+            if (neg_a) cmp = -cmp;
+        } else {
+            cmp = 0;
+        }
+        return cmp > 0;
+    }
 }

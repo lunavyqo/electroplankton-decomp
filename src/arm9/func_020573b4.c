@@ -1,24 +1,33 @@
 // addr 0x020573b4 size 0x48
-// _f_utof — unsigned int to float (soft-float) (MWCC soft-float runtime)
-asm void func_020573b4()
-{
-    cmp r0, #0
-    bxeq lr
-    mov r3, #0x9e
-    bmi loc_020573d0
-    clz ip, r0
-    movs r0, r0, lsl ip
-    sub r3, r3, ip
-loc_020573d0:
-    ands r2, r0, #0xff
-    add r0, r0, r0
-    mov r0, r0, lsr #9
-    orr r0, r0, r3, lsl #23
-    bxeq lr
-    tst r2, #0x80
-    bxeq lr
-    ands r1, r2, #0x7f
-    andeqs r1, r0, #1
-    addne r0, r0, #1
-    bx lr
+// _f_utof — unsigned int → float bits (round nearest, ties even-ish).
+//
+// NONMATCHING: target uses clz + sticky round tail (andeqs/addne). (div=34)
+// __cntlzw helps but still diverges; (float)u cast is a bl stub only.
+
+unsigned func_020573b4(unsigned x) {
+    unsigned exp;
+    unsigned round;
+    unsigned m;
+    if (x == 0u) {
+        return 0u;
+    }
+    exp = 0x9eu;
+    if ((int)x >= 0) {
+        unsigned n = (unsigned)__cntlzw(x);
+        x <<= n;
+        exp -= n;
+    }
+    round = x & 0xffu;
+    m = (x + x) >> 9;
+    m |= exp << 23;
+    if (round == 0u) {
+        return m;
+    }
+    if ((round & 0x80u) == 0u) {
+        return m;
+    }
+    if ((round & 0x7fu) == 0u && (m & 1u) == 0u) {
+        return m;
+    }
+    return m + 1u;
 }

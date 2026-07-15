@@ -1,24 +1,20 @@
 // addr 0x02058410 size 0x38
-// Walk null-terminated function-pointer table (static ctors/dtors)
+// Walk null-terminated function-pointer table (static ctors/dtors).
+//
+// NONMATCHING: (div=14) pure C of the obvious loop; target has unusual cmp r4,#0
+// after loading table base (was asm paste).
 
 typedef void (*VoidFunc)(void);
 extern VoidFunc data_0205d00c[];
 
-asm void func_02058410(void)
-{
-    stmdb sp!, {r4, lr}
-    ldr r4, =data_0205d00c
-    b Lcheck
-Lcall:
-    blx r0
-    add r4, r4, #4
-Lcheck:
-    cmp r4, #0
-    ldmeqia sp!, {r4, lr}
-    bxeq lr
-    ldr r0, [r4]
-    cmp r0, #0
-    bne Lcall
-    ldmia sp!, {r4, lr}
-    bx lr
+void func_02058410(void) {
+    VoidFunc *p = data_0205d00c;
+    for (;;) {
+        VoidFunc f = *p;
+        if (f == 0) {
+            break;
+        }
+        f();
+        p++;
+    }
 }
