@@ -1,19 +1,23 @@
 // addr 0x02057340 size 0x34
-// _f_ftol — float to signed long (soft-float) (MWCC soft-float runtime)
-asm void func_02057340()
-{
-    bic r1, r0, #0x80000000
-    mov r2, #0x9e
-    subs r2, r2, r1, lsr #23
-    ble loc_02057368
-    mov r1, r1, lsl #8
-    orr r1, r1, #0x80000000
-    cmp r0, #0
-    mov r0, r1, lsr r2
-    rsbmi r0, r0, #0
-    bx lr
-loc_02057368:
-    mvn r0, r0, asr #31
-    add r0, r0, #0x80000000
-    bx lr
+// _f_ftol — IEEE float bits → signed long (soft-float runtime).
+//
+// NONMATCHING: hand-written runtime sequence (bic/subs/ble/orr/lsr/rsbmi; (div=12)
+// overflow via mvn asr#31). Pure C bit-twiddle is same-size-ish but wrong insn
+// selection; (int)float cast only emits a bl stub into this routine.
+
+int func_02057340(unsigned f) {
+    unsigned mag = f & ~0x80000000u;
+    int shift = 0x9e - (int)(mag >> 23);
+    if (shift <= 0) {
+        /* sign-dependent overflow: INT_MAX or 0x80000000 */
+        return (int)(~((int)f >> 31) + 0x80000000);
+    }
+    {
+        unsigned mant = (mag << 8) | 0x80000000u;
+        unsigned res = mant >> (unsigned)shift;
+        if ((int)f < 0) {
+            return -(int)res;
+        }
+        return (int)res;
+    }
 }
