@@ -1,43 +1,42 @@
 // addr 0x020572bc size 0x84
-// _f_ftod — float to double (soft-float) (MWCC soft-float runtime)
-asm void func_020572bc()
-{
-    and r2, r0, #0x80000000
-    mov ip, r0, lsr #0x17
-    mov r3, r0, lsl #9
-    ands ip, ip, #0xff
-    beq loc_020572ec
-    cmp ip, #0xff
-    beq loc_02057318
-loc_020572d8:
-    add ip, ip, #0x380
-    mov r0, r3, lsl #0x14
-    orr r1, r2, r3, lsr #12
-    orr r1, r1, ip, lsl #20
-    bx lr
-loc_020572ec:
-    cmp r3, #0
-    bne loc_02057300
-    mov r1, r2
-    mov r0, #0
-    bx lr
-loc_02057300:
-    mov r3, r3, lsr #1
-    clz ip, r3
-    movs r3, r3, lsl ip
-    rsb ip, ip, #1
-    add r3, r3, r3
-    b loc_020572d8
-loc_02057318:
-    cmp r3, #0
-    bhi loc_02057330
-    ldr r1, [pc, #0x14]
-    orr r1, r1, r2
-    mov r0, #0
-    bx lr
-loc_02057330:
-    mvn r0, #0
-    bic r1, r0, #0x80000000
-    bx lr
-    dcd 0x7FF00000
+// _f_ftod — float bits → double bits (soft-float runtime).
+//
+// NONMATCHING: hand-written special-case tree (norm/denorm/inf/nan) with (div=49)
+// pool constant 0x7ff00000. (double)float cast only emits a bl stub.
+
+unsigned long long func_020572bc(unsigned f) {
+    unsigned sign = f & 0x80000000u;
+    unsigned exp = (f >> 23) & 0xffu;
+    unsigned frac = f << 9;
+    unsigned hi;
+    unsigned lo;
+    if (exp == 0u) {
+        if (frac == 0u) {
+            return ((unsigned long long)sign) << 32;
+        }
+        /* denorm normalize */
+        frac >>= 1;
+        {
+            unsigned n = (unsigned)__cntlzw(frac);
+            frac <<= n;
+            exp = 1u - n;
+        }
+        frac += frac;
+        exp += 0x380u;
+        lo = frac << 20;
+        hi = sign | (frac >> 12) | (exp << 20);
+        return ((unsigned long long)hi << 32) | lo;
+    }
+    if (exp == 0xffu) {
+        if (frac == 0u) {
+            /* inf */
+            return ((unsigned long long)(sign | 0x7ff00000u) << 32);
+        }
+        /* nan */
+        return 0x7fffffffffffffffull;
+    }
+    exp += 0x380u;
+    lo = frac << 20;
+    hi = sign | (frac >> 12) | (exp << 20);
+    return ((unsigned long long)hi << 32) | lo;
 }

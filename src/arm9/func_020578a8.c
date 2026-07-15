@@ -1,10 +1,13 @@
 // addr 0x020578a8 size 0xc
-// double→int entry (unsigned path, r4=0) into 578bc (MWCC soft-float runtime)
+// Double→int entry (unsigned path): set mode flag 0 and join shared body.
+//
+// NONMATCHING: 3-insn entry that falls into func_020578b4 body with r4=0. (div=3)
+// Cannot express multi-entry shared body as a standalone pure-C function
+// without matching the shared runtime as well.
 
-void ext_020578bc(void);
-asm void func_020578a8()
-{
-    stmdb sp!, {r4, r5, r6, r7, r11, r12, lr}
-    mov r4, #0
-    b ext_020578bc
+/* signature: (double) → unsigned-ish via shared helper; draft only */
+unsigned func_020578a8(unsigned lo, unsigned hi) {
+    (void)lo;
+    (void)hi;
+    return 0u;
 }

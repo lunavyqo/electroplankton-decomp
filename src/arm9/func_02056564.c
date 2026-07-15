@@ -1,23 +1,31 @@
 // addr 0x02056564 size 0x48
-// soft-float float cmp → 0/1/2/3 (split NaN checks) (MWCC soft-float runtime)
-asm void func_02056564()
-{
-    mov r3, #0xff000000
-    cmp r3, r0, lsl #1
-    movlo r0, #3
-    bxlo lr
-    cmp r3, r1, lsl #1
-    movlo r0, #3
-    bxlo lr
-    cmp r0, #0
-    bicmi r0, r0, #0x80000000
-    rsbmi r0, r0, #0
-    cmp r1, #0
-    bicmi r1, r1, #0x80000000
-    rsbmi r1, r1, #0
-    cmp r0, r1
-    moveq r0, #0
-    movlt r0, #1
-    movgt r0, #2
-    bx lr
+// Soft-float float ordered compare → 0/1/2/3 (eq/lt/gt/unord).
+// Split NaN checks (target: movlo/bxlo after each cmp lim, rn, lsl #1).
+//
+// NONMATCHING: codegen wall — target uses bicmi/rsbmi + moveq/lt/gt (72B); (div=21)
+// this C emits larger split compares without conditional-exec forms (div below).
+
+int func_02056564(int a, int b) {
+    unsigned lim = 0xFF000000u;
+    if (lim < ((unsigned)a << 1)) {
+        return 3;
+    }
+    if (lim < ((unsigned)b << 1)) {
+        return 3;
+    }
+    if (a < 0) {
+        a &= ~0x80000000;
+        a = -a;
+    }
+    if (b < 0) {
+        b &= ~0x80000000;
+        b = -b;
+    }
+    if (a == b) {
+        return 0;
+    }
+    if (a < b) {
+        return 1;
+    }
+    return 2;
 }

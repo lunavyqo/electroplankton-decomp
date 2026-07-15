@@ -1,23 +1,22 @@
 // addr 0x02057374 size 0x40
-// _f_ftoul — float to unsigned long (soft-float) (MWCC soft-float runtime)
-asm void func_02057374()
-{
-    tst r0, #0x80000000
-    bne loc_02057398
-    mov r1, #0x9e
-    subs r1, r1, r0, lsr #23
-    blt loc_020573ac
-    mov r2, r0, lsl #8
-    orr r0, r2, #0x80000000
-    mov r0, r0, lsr r1
-    bx lr
-loc_02057398:
-    mov r2, #0xff000000
-    cmp r2, r0, lsl #1
-    movhs r0, #0
-    mvnlo r0, #0
-    bx lr
-loc_020573ac:
-    mvn r0, #0
-    bx lr
+// _f_ftoul — IEEE float bits → unsigned long (soft-float runtime).
+//
+// NONMATCHING: target special-cases negative via lim cmp; overflow → ~0. (div=16)
+// Pure C approximates control flow but not instruction selection.
+
+unsigned func_02057374(unsigned f) {
+    if (f & 0x80000000u) {
+        unsigned lim = 0xFF000000u;
+        if (lim >= (f << 1)) {
+            return 0u;
+        }
+        return ~0u;
+    }
+    {
+        int shift = 0x9e - (int)(f >> 23);
+        if (shift < 0) {
+            return ~0u;
+        }
+        return ((f << 8) | 0x80000000u) >> (unsigned)shift;
+    }
 }
