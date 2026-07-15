@@ -1,4 +1,4 @@
-# Match attempts (experimental) — every try
+# Match attempts (experimental) — every try as a tree
 
 Append-only history of **every matching iteration**, including:
 
@@ -13,15 +13,39 @@ This is separate from:
 | Store | Keeps |
 |-------|--------|
 | `config/match_provenance.jsonl` | Final **how** when banked (+ `author` who) |
-| Near-miss best draft (if any) | Closest candidate only |
-| **`config/match_attempts.jsonl`** | **All tries** |
+| Near-miss best draft (if any) | Closest **C** candidate only |
+| **`config/match_attempts.jsonl`** | **All tries** (attempt tree) |
 
-## Record shape
+## Attempt tree (not a flat diary)
+
+```text
+functionId = arm9:0x02001a64
+├─ attemptId=aa…  near_miss div=40   parent=null      base=scratch
+│  ├─ bb…  no_progress               parent=aa…       (dead-end sibling)
+│  └─ cc…  near_miss div=12          parent=aa…       improvedNearMiss=true
+│     └─ dd…  matched                parent=cc…       continued from best tip
+```
+
+Rules:
+
+- First try: `parentAttemptId = null`, `base.kind = scratch` (or draft/sibling).
+- Later tries: `parentAttemptId` = the node you **actually built on** (usually best near-miss tip).
+- `no_progress` still gets a node under that parent.
+- After an improved near-miss, continue with `parent` = that new node.
+- **Never** key history by display name alone — use **`functionId`**.
+- **Never** reuse `attemptId` (use UUIDs; `log_attempt.py` generates them).
+
+## Record shape (schemaVersion 1)
 
 ```json
 {
-  "ts": "2026-07-13T12:00:00Z",
+  "schemaVersion": 1,
+  "functionId": "arm9:0x02001a64",
   "id": "arm9:0x02001a64",
+  "attemptId": "a1b2c3d4e5f64789a0b1c2d3e4f50617",
+  "parentAttemptId": null,
+  "loggedAt": "2026-07-15T12:00:00Z",
+  "ts": "2026-07-15T12:00:00Z",
   "module": "arm9",
   "addr": 33561188,
   "name": "func_02001a64",
@@ -31,28 +55,43 @@ This is separate from:
   "reasoning": "high",
   "harness": "grok-build",
   "author": "lunavyqo",
+  "base": { "kind": "scratch" },
   "divergences": null,
   "prevBestDivergences": 4,
   "improvedNearMiss": false,
   "srcPath": "scratch/try3.c",
-  "label": "session-12",
+  "label": "wave-cheap-01",
   "sessionScope": "focused",
   "batchSize": 1,
   "note": "optional"
 }
 ```
 
-### sessionScope (required every run — like model/harness)
+### Identity fields (required)
+
+| Field | Role |
+|-------|------|
+| `schemaVersion` | `1` — bump only when meanings change |
+| `functionId` | Atlas `module:0xaddr` (stable). Legacy key `id` is the same value. |
+| `attemptId` | Unique id for **this** node (UUID hex). Never `a1` / `try2`. |
+| `parentAttemptId` | Prior `attemptId` you built on, or `null` |
+| `loggedAt` | ISO-8601 UTC when the try finished (`ts` mirrors it) |
+
+### base.kind
 
 | Value | Meaning |
 |-------|---------|
-| **`focused`** | Matching session was **only for this function** (solo / dedicated context) |
-| **`batch`** | Function was one of **several** in the same session (`batchSize` ≥ 2) |
+| `scratch` | Started from empty / re-decompile |
+| `previous_attempt` | Edited from a prior attempt node |
+| `near_miss_draft` | Started from a stored NONMATCHING C draft |
+| `matched_sibling` | Scaffolded from a matched sibling |
 
-**Required on every attempt**, not only on successful banks — same expectation as
-`model` / `harness` for AI runs. Missing `sessionScope` is a validation error.
+### sessionScope (required every run)
 
-Theory: focused sessions give denser context and may land matches more often.
+| Value | Meaning |
+|-------|---------|
+| **`focused`** | Session was only for this function (`batchSize` = 1) |
+| **`batch`** | One of several functions in the same session (`batchSize` ≥ 2) |
 
 ### status
 
@@ -69,18 +108,21 @@ Theory: focused sessions give denser context and may land matches more often.
 
 **Do not** put full C sources in the log (size). Use `srcPath` to a scratch file.
 
+**Do not** log pure asm as a successful path — deliverable is C through mwccarm
+([matching-style.md](matching-style.md)).
+
 ## CLI
 
 ```bash
-# Dead end in a multi-function batch
+# Dead end under a parent tip (multi-function batch)
 python tools/log_attempt.py \
   --func func_02001a64 --module arm9 --addr 0x02001a64 \
   --status no_progress --kind ai \
   --model grok-4.5 --reasoning high --harness grok-build \
   --author lunavyqo --session-scope batch --batch-size 8 \
-  --note "no change"
+  --parent-attempt-id <prior> --note "no change"
 
-# Focused solo near-miss that did not beat best
+# Focused near-miss that did not beat best
 python tools/log_attempt.py --func func_02001a64 \
   --status near_miss --divergences 6 --prev-best 4 \
   --kind ai --model grok-4.5 --reasoning high --harness grok-build \
@@ -102,4 +144,8 @@ python tools/test_match_attempts.py
 
 Log **every** agent/human iteration for experimental work. Prefer over-logging.
 Agents using the chaos-experimental prompt should emit a MATCH_RESULT for each
-function each session; operators ingest with `log_attempt.py` (or future auto-parse).
+function each session (with functionId + attemptId + parentAttemptId);
+operators ingest with `log_attempt.py` (or future auto-parse).
+
+Use `label` for mass-run waves (`wave-cheap-01`, `wave-mid-02`) so later queries
+can filter by model tier without re-reading chat history.

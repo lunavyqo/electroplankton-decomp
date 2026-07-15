@@ -3,16 +3,19 @@
 
 Examples:
 
-  # AI try that didn't help
+  # AI try that didn't help (new root)
   python tools/log_attempt.py --func func_02001a64 --module arm9 --addr 0x02001a64 \\
       --status no_progress --kind ai \\
       --model grok-4.5 --reasoning high --harness grok-build \\
-      --author lunavyqo --note "permuter stuck"
+      --author lunavyqo --session-scope focused --batch-size 1 \\
+      --note "permuter stuck"
 
-  # Near-miss scored but not better than best
-  python tools/log_attempt.py --src scratch/foo.c --func func_02001a64 \\
+  # Continue from a prior attempt node
+  python tools/log_attempt.py --func func_02001a64 \\
       --status near_miss --divergences 6 --prev-best 4 \\
-      --kind ai --model grok-4.5 --reasoning high --harness grok-build
+      --kind ai --model grok-4.5 --reasoning high --harness grok-build \\
+      --session-scope focused --batch-size 1 \\
+      --parent-attempt-id <priorAttemptId>
 
   # Successful match (also bank with bank.py)
   python tools/log_attempt.py --func … --status matched --kind ai …
@@ -75,7 +78,7 @@ def main() -> None:
         default=None,
         help="Override improvedNearMiss (default: compare divergences vs --prev-best)",
     )
-    ap.add_argument("--label", help="Batch / session label")
+    ap.add_argument("--label", help="Batch / wave / session label (e.g. wave-cheap-01)")
     ap.add_argument(
         "--session-scope",
         choices=("focused", "batch"),
@@ -88,6 +91,36 @@ def main() -> None:
         default=None,
         dest="batch_size",
         help="REQUIRED for batch (≥2); defaults to 1 when --session-scope=focused",
+    )
+    ap.add_argument(
+        "--attempt-id",
+        dest="attempt_id",
+        help="Optional unique id for this node (UUID hex). Generated if omitted.",
+    )
+    ap.add_argument(
+        "--parent-attempt-id",
+        dest="parent_attempt_id",
+        default=None,
+        help="attemptId of the node you built on (omit/null for new root)",
+    )
+    ap.add_argument(
+        "--base-kind",
+        dest="base_kind",
+        choices=[
+            "scratch",
+            "previous_attempt",
+            "near_miss_draft",
+            "matched_sibling",
+        ],
+        default=None,
+        help="What this try was based on (default: scratch or previous_attempt)",
+    )
+    ap.add_argument(
+        "--base-divergences",
+        type=int,
+        default=None,
+        dest="base_divergences",
+        help="Score of the base you started from, if known",
     )
     ap.add_argument("--note")
     ap.add_argument(
@@ -150,13 +183,18 @@ def main() -> None:
             note=args.note,
             session_scope=args.session_scope,
             batch_size=args.batch_size,
+            attempt_id=args.attempt_id,
+            parent_attempt_id=args.parent_attempt_id,
+            base_kind=args.base_kind,
+            base_divergences=args.base_divergences,
         )
     except ProvenanceError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(2)
 
     print(
-        f"Logged attempt {row['id']} status={row['status']} "
+        f"Logged attempt functionId={row['functionId']} attemptId={row['attemptId']} "
+        f"parent={row.get('parentAttemptId')} status={row['status']} "
         f"scope={row.get('sessionScope')} batchSize={row.get('batchSize')} "
         f"improved={row.get('improvedNearMiss')} kind={row['kind']}"
     )

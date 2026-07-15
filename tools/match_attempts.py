@@ -7,26 +7,32 @@ compile failures, and failed verifies.
 
 Store: config/match_attempts.jsonl  (one JSON object per line, never rewritten)
 
-Record (minimal):
+Record (schemaVersion 1 — attempt tree):
   {
-    "ts": "2026-07-13T12:00:00Z",
-    "id": "arm9:0x02001a64",
+    "schemaVersion": 1,
+    "functionId": "arm9:0x02001a64",   # atlas id (stable); same as historical "id"
+    "id": "arm9:0x02001a64",          # alias of functionId (backward compatible)
+    "attemptId": "a1b2c3…",           # UNIQUE this node (UUID hex); never reuse
+    "parentAttemptId": null,          # prior attemptId you built on, or null
+    "loggedAt": "2026-07-15T12:00:00Z",
+    "ts": "…",                        # same as loggedAt (legacy key)
     "module": "arm9",
     "addr": 33561188,
     "name": "func_02001a64",
-    "status": "no_progress",   # see STATUSES
-    "kind": "ai",              # ai | human
-    "model": "grok-4.5",       # required when kind=ai
+    "status": "no_progress",
+    "kind": "ai",
+    "model": "grok-4.5",
     "reasoning": "high",
     "harness": "grok-build",
-    "author": "lunavyqo",      # optional operator (classic credit identity)
-    "divergences": null,       # int if scored
-    "prevBestDivergences": 4,  # optional prior best
+    "author": "lunavyqo",
+    "base": {"kind": "scratch"},      # scratch | previous_attempt | near_miss_draft | matched_sibling
+    "divergences": null,
+    "prevBestDivergences": 4,
     "improvedNearMiss": false,
-    "srcPath": "scratch/…",    # optional path to attempt C
-    "label": "batch-3",        # optional batch / session label
-    "sessionScope": "focused", # focused | batch  (required for new records)
-    "batchSize": 1,            # how many functions in this matching session
+    "srcPath": "scratch/…",
+    "label": "wave-cheap-01",
+    "sessionScope": "focused",
+    "batchSize": 1,
     "note": "optional short note"
   }
 
@@ -40,6 +46,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -63,6 +70,17 @@ STATUSES = frozenset(
 
 SESSION_SCOPES = frozenset({"focused", "batch"})
 
+BASE_KINDS = frozenset(
+    {
+        "scratch",
+        "previous_attempt",
+        "near_miss_draft",
+        "matched_sibling",
+    }
+)
+
+SCHEMA_VERSION = 1
+
 
 def attempts_path() -> pathlib.Path:
     return get_repo() / "config" / "match_attempts.jsonl"
@@ -74,12 +92,20 @@ def utc_now_iso() -> str:
     )
 
 
+def new_attempt_id() -> str:
+    """Unique id for one attempt node (UUID hex — not a1/try2)."""
+    return uuid.uuid4().hex
+
+
 def validate_attempt(rec: dict) -> Optional[str]:
     """Return None if ok, else error string."""
     if not isinstance(rec, dict):
         return "attempt must be an object"
-    # Core fields on every run (same tier as model/harness for AI).
-    for req in ("id", "module", "name", "status", "kind", "sessionScope", "batchSize"):
+    # functionId preferred; accept legacy id-only rows after normalize fills both.
+    fid = rec.get("functionId") or rec.get("id")
+    if not fid:
+        return "attempt missing functionId/id"
+    for req in ("name", "module", "status", "kind", "sessionScope", "batchSize"):
         if req not in rec or rec[req] in (None, ""):
             return (
                 f"attempt missing {req!r} "
@@ -91,7 +117,6 @@ def validate_attempt(rec: dict) -> Optional[str]:
     if kind not in ("ai", "human"):
         return f'kind must be "ai" or "human", got {kind!r}'
     if kind == "ai":
-        # Reuse provenance token rules via normalize.
         try:
             normalize_provenance(
                 {
@@ -130,14 +155,55 @@ def validate_attempt(rec: dict) -> Optional[str]:
             return "sessionScope=batch requires batchSize >= 2"
     except (TypeError, ValueError):
         return "batchSize must be int"
+
+    # Identity (schemaVersion 1)
+    aid = rec.get("attemptId")
+    if not aid or not str(aid).strip():
+        return "attemptId required (unique UUID for this try; never a1/try2)"
+    if str(aid).strip().lower() in ("a1", "a2", "try1", "try2", "1", "2"):
+        return "attemptId looks non-unique; use a UUID (tools generate one if omitted)"
+    parent = rec.get("parentAttemptId", None)
+    if parent is not None and parent != "" and not str(parent).strip():
+        return "parentAttemptId must be null or a non-empty attemptId"
+    if parent is not None and parent != "" and str(parent).strip() == str(aid).strip():
+        return "parentAttemptId must not equal attemptId"
+    base = rec.get("base")
+    if base is not None:
+        if not isinstance(base, dict):
+            return "base must be an object"
+        bk = str(base.get("kind", "")).strip().lower()
+        if bk not in BASE_KINDS:
+            return f"base.kind must be one of {sorted(BASE_KINDS)}, got {bk!r}"
     return None
 
 
 def normalize_attempt(rec: dict) -> dict:
     """Clean + validate. Raises ProvenanceError."""
+    logged = rec.get("loggedAt") or rec.get("ts") or utc_now_iso()
+    function_id = str(rec.get("functionId") or rec.get("id") or "").strip()
+    if not function_id:
+        raise ProvenanceError("functionId (or id) required")
+
+    attempt_id = rec.get("attemptId")
+    if attempt_id is None or str(attempt_id).strip() == "":
+        attempt_id = new_attempt_id()
+    else:
+        attempt_id = str(attempt_id).strip()
+
+    parent_raw = rec.get("parentAttemptId", None)
+    if parent_raw in (None, "", "null"):
+        parent_attempt_id = None
+    else:
+        parent_attempt_id = str(parent_raw).strip()
+
     out: dict[str, Any] = {
-        "ts": rec.get("ts") or utc_now_iso(),
-        "id": str(rec["id"]),
+        "schemaVersion": int(rec.get("schemaVersion") or SCHEMA_VERSION),
+        "functionId": function_id,
+        "id": function_id,  # legacy alias — same as functionId
+        "attemptId": attempt_id,
+        "parentAttemptId": parent_attempt_id,
+        "loggedAt": logged,
+        "ts": logged,
         "module": str(rec["module"]),
         "addr": int(rec["addr"]) if rec.get("addr") is not None else None,
         "name": str(rec["name"]),
@@ -179,8 +245,24 @@ def normalize_attempt(rec: dict) -> dict:
     if rec.get("note"):
         out["note"] = str(rec["note"]).strip()
 
+    # base of work (attempt tree)
+    base_in = rec.get("base")
+    if isinstance(base_in, dict) and base_in.get("kind"):
+        bk = str(base_in["kind"]).strip().lower()
+        base_out: dict[str, Any] = {"kind": bk}
+        if base_in.get("attemptId"):
+            base_out["attemptId"] = str(base_in["attemptId"]).strip()
+        elif parent_attempt_id and bk == "previous_attempt":
+            base_out["attemptId"] = parent_attempt_id
+        if base_in.get("divergences") is not None:
+            base_out["divergences"] = int(base_in["divergences"])
+        out["base"] = base_out
+    elif parent_attempt_id:
+        out["base"] = {"kind": "previous_attempt", "attemptId": parent_attempt_id}
+    else:
+        out["base"] = {"kind": "scratch"}
+
     # Session focus — required every run (same expectation as model/harness).
-    # Infer only when one of the two is provided.
     scope_raw = rec.get("sessionScope")
     batch_size = rec.get("batchSize")
     if batch_size is not None and batch_size != "":
@@ -238,14 +320,22 @@ def append_attempt(
     note: Optional[str] = None,
     session_scope: Optional[str] = None,
     batch_size: Optional[int] = None,
+    attempt_id: Optional[str] = None,
+    parent_attempt_id: Optional[str] = None,
+    base_kind: Optional[str] = None,
+    base_divergences: Optional[int] = None,
     ts: Optional[str] = None,
     path: Optional[pathlib.Path] = None,
 ) -> dict:
     """Append one attempt. Always records — including no_progress. Raises ProvenanceError."""
     rid = make_id(module, addr)
     rec: dict[str, Any] = {
-        "ts": ts or utc_now_iso(),
+        "schemaVersion": SCHEMA_VERSION,
+        "functionId": rid,
         "id": rid,
+        "attemptId": attempt_id or new_attempt_id(),
+        "parentAttemptId": parent_attempt_id,
+        "ts": ts or utc_now_iso(),
         "module": module,
         "addr": int(addr),
         "name": name,
@@ -270,12 +360,18 @@ def append_attempt(
         rec["label"] = label
     if note:
         rec["note"] = note
-    # sessionScope is required every run (like model/harness). Callers must pass it
-    # or pass batch_size so we can infer focused vs batch.
     if session_scope is not None:
         rec["sessionScope"] = session_scope
     if batch_size is not None:
         rec["batchSize"] = batch_size
+    if base_kind:
+        base: dict[str, Any] = {"kind": base_kind}
+        if parent_attempt_id and base_kind == "previous_attempt":
+            base["attemptId"] = parent_attempt_id
+        if base_divergences is not None:
+            base["divergences"] = base_divergences
+        rec["base"] = base
+
     clean = normalize_attempt(rec)
     out = path or attempts_path()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -302,7 +398,8 @@ def load_attempts(
             row = json.loads(line)
         except json.JSONDecodeError as e:
             raise ProvenanceError(f"{path}:{line_no}: invalid JSON: {e}") from e
-        if function_id and row.get("id") != function_id:
+        fid = row.get("functionId") or row.get("id")
+        if function_id and fid != function_id:
             continue
         rows.append(row)
     return rows
@@ -315,6 +412,7 @@ def attempt_stats(rows: list[dict]) -> dict[str, Any]:
     improved = 0
     matched_focused = 0
     matched_batch = 0
+    models: set[str] = set()
     for r in rows:
         s = r.get("status") or "?"
         by_status[s] = by_status.get(s, 0) + 1
@@ -327,6 +425,8 @@ def attempt_stats(rows: list[dict]) -> dict[str, Any]:
                 matched_focused += 1
             elif scope == "batch":
                 matched_batch += 1
+        if r.get("model"):
+            models.add(str(r["model"]))
     return {
         "total": len(rows),
         "byStatus": by_status,
@@ -334,4 +434,5 @@ def attempt_stats(rows: list[dict]) -> dict[str, Any]:
         "improvedNearMiss": improved,
         "matchedFocused": matched_focused,
         "matchedBatch": matched_batch,
+        "modelsTried": sorted(models),
     }

@@ -1,196 +1,106 @@
 // addr 0x0200625c size 0x2d8
+// NONMATCHING: pure-C structural draft (div=182)
 
-void func_02002654(void);
-void func_02042ff4(void);
-void func_02043124(void);
+typedef struct {
+    int pad00;
+    int field04;
+    int slot8[5];
+    int slot1c[5];
+    int slot30[5];
+    unsigned char field44;
+    signed char field45;
+    char pad46[2];
+    int field48;
+} Obj;
 
-asm void func_0200625c(void) {
-    stmdb sp!, {r4, r5, r6, r7, r8, lr}
-    sub sp, sp, #8
-    mov r8, r0
-    mov r7, r2
-    mov r6, r3
-    cmp r8, #5
-    blt loc_02006284
-loc_02006278:
-    sub r8, r8, #5
-    cmp r8, #5
-    bge loc_02006278
-loc_02006284:
-    ldr r0, =0x0206f658
-    ldr r2, =0x020585f0
-    ldr r4, [r0]
-    mov r0, #3
-    ldrb r3, [r4, #0x44]
-    cmp r1, #0
-    mla r0, r3, r0, r2
-    ldrb r0, [r1, r0]
-    add r5, r8, r0
-    bne loc_0200631c
-    add r0, r4, #8
-    add r0, r0, r8, lsl #2
-    mov r1, #0
-    bl func_02043124
-    mov r0, r6, lsl #4
-    rsb r1, r0, #0x7f
-    mov r0, #0x64
-    mul r3, r1, r0
-    ldr r2, =0x81020409
-    mov r0, r3, lsr #0x1f
-    smull r1, r4, r2, r3
-    add r4, r3, r4
-    mov r4, r4, asr #6
-    add r4, r0, r4
-    str r4, [sp]
-    mov r1, #0
-    str r1, [sp, #4]
-    ldr r0, =0x0206f658
-    mov r2, r5
-    ldr r0, [r0]
-    mov r1, #9
-    add r0, r0, #8
-    add r0, r0, r8, lsl #2
-    mov r3, #0x3c
-    bl func_02002654
-    add sp, sp, #8
-    ldmia sp!, {r4, r5, r6, r7, r8, lr}
-    bx lr
-loc_0200631c:
-    cmp r1, #1
-    bne loc_02006394
-    add r0, r4, #0x1c
-    add r0, r0, r8, lsl #2
-    mov r1, #0
-    bl func_02043124
-    mov r0, r6, lsl #4
-    rsb r1, r0, #0x7f
-    mov r0, #0x64
-    mul r3, r1, r0
-    ldr r2, =0x81020409
-    mov r0, r3, lsr #0x1f
-    smull r1, r4, r2, r3
-    add r4, r3, r4
-    mov r4, r4, asr #6
-    add r4, r0, r4
-    str r4, [sp]
-    mov r1, #0
-    str r1, [sp, #4]
-    ldr r0, =0x0206f658
-    mov r2, r5
-    ldr r0, [r0]
-    mov r1, #9
-    add r0, r0, #0x1c
-    add r0, r0, r8, lsl #2
-    mov r3, #0x3c
-    bl func_02002654
-    add sp, sp, #8
-    ldmia sp!, {r4, r5, r6, r7, r8, lr}
-    bx lr
-loc_02006394:
-    cmp r7, #8
-    blo loc_020063ac
-loc_0200639c:
-    sub r0, r7, #8
-    and r7, r0, #0xff
-    cmp r7, #8
-    bhs loc_0200639c
-loc_020063ac:
-    add r0, r4, #0x30
-    add r0, r0, r8, lsl #2
-    mov r1, #0
-    mov r4, r8, lsl #2
-    bl func_02043124
-    ldr r0, =0x0206f658
-    ldr r0, [r0]
-    ldrb r1, [r0, #0x44]
-    cmp r1, #2
-    bne loc_020064ac
-    cmp r8, #2
-    bne loc_020064ac
-    cmp r7, #0
-    beq loc_020063fc
-    cmp r7, #3
-    beq loc_020063fc
-    cmp r7, #4
-    beq loc_020063fc
-    cmp r7, #7
-    bne loc_02006454
-loc_020063fc:
-    mov r2, r6, lsl #4
-    rsb r3, r2, #0x7f
-    mov r2, #0x64
-    mul ip, r3, r2
-    ldr r3, =0x81020409
-    ldr r6, =0x020585fc
-    smull r2, lr, r3, ip
-    add lr, ip, lr
-    add r8, r0, #0x30
-    mov lr, lr, asr #6
-    mov r0, ip, lsr #0x1f
-    add lr, r0, lr
-    str lr, [sp]
-    mov r0, #0
-    str r0, [sp, #4]
-    add r0, r6, r1, lsl #3
-    ldrb r3, [r7, r0]
-    mov r2, r5
-    add r0, r8, r4
-    mov r1, #9
-    bl func_02002654
-    b loc_02006500
-loc_02006454:
-    mov r2, r6, lsl #4
-    rsb r3, r2, #0x7f
-    mov r2, #0x64
-    mul r8, r3, r2
-    ldr r3, =0x81020409
-    ldr r6, =0x020585fc
-    smull r2, ip, r3, r8
-    add ip, r8, ip
-    add r2, r0, #0x30
-    mov ip, ip, asr #6
-    mov r0, r8, lsr #0x1f
-    add ip, r0, ip
-    str ip, [sp]
-    mov r0, #0
-    str r0, [sp, #4]
-    add r0, r6, r1, lsl #3
-    ldrb r3, [r7, r0]
-    add r0, r2, r4
-    add r2, r5, #3
-    mov r1, #9
-    bl func_02002654
-    b loc_02006500
-loc_020064ac:
-    mov r2, r6, lsl #4
-    rsb r3, r2, #0x7f
-    mov r2, #0x64
-    mul ip, r3, r2
-    ldr r3, =0x81020409
-    ldr r6, =0x020585fc
-    smull r2, lr, r3, ip
-    add lr, ip, lr
-    add r8, r0, #0x30
-    mov lr, lr, asr #6
-    mov r0, ip, lsr #0x1f
-    add lr, r0, lr
-    str lr, [sp]
-    mov r0, #0
-    str r0, [sp, #4]
-    add r0, r6, r1, lsl #3
-    ldrb r3, [r7, r0]
-    mov r2, r5
-    add r0, r8, r4
-    mov r1, #9
-    bl func_02002654
-loc_02006500:
-    ldr r0, =0x0206f658
-    ldr r1, [r0]
-    add r0, r1, #0x30
-    ldr r1, [r1, #0x48]
-    add r0, r0, r4
-    bl func_02042ff4
-    add sp, sp, #8
-    ldmia sp!, {r4, r5, r6, r7, r8, lr}
-    bx lr
+extern Obj *data_0206f658;
+extern unsigned char data_020585f0[];
+extern unsigned char data_020585fc[];
+
+void func_02043124(void *p, int a);
+void func_02002654(void *p, int a, int b, int c, int d, int e);
+void func_02042ff4(void *p, int a);
+
+static int compute_vol(int d) {
+    int t = (0x7f - (d << 4)) * 0x64;
+    return t / 100;
+}
+
+void func_0200625c(int a, int mode, unsigned int ch, int d) {
+    int idx = a;
+    Obj *obj;
+    int note;
+    int vol;
+    int i;
+    unsigned char f44;
+
+    while (idx >= 5) {
+        idx -= 5;
+    }
+
+    obj = data_0206f658;
+    f44 = obj->field44;
+    /* ldrb from (data_020585f0 + f44*3 + mode) when mode is small int */
+    note = idx + data_020585f0[f44 * 3 + mode];
+
+    if (mode == 0) {
+        func_02043124(&obj->slot8[idx], 0);
+        vol = compute_vol(d);
+        func_02002654(&data_0206f658->slot8[idx], 9, note, 0x3c, vol, 0);
+        return;
+    }
+    if (mode == 1) {
+        func_02043124(&obj->slot1c[idx], 0);
+        vol = compute_vol(d);
+        func_02002654(&data_0206f658->slot1c[idx], 9, note, 0x3c, vol, 0);
+        return;
+    }
+
+    while (ch >= 8) {
+        ch = (ch - 8) & 0xff;
+    }
+
+    func_02043124(&obj->slot30[idx], 0);
+    {
+        int off = idx * 4;
+        Obj *o = data_0206f658;
+        f44 = o->field44;
+        if (f44 == 2 && idx == 2) {
+            if (ch == 0 || ch == 3 || ch == 4 || ch == 7) {
+                vol = compute_vol(d);
+                func_02002654(
+                    (char *)&o->slot30[0] + off,
+                    9,
+                    note,
+                    data_020585fc[f44 * 8 + ch],
+                    vol,
+                    0
+                );
+            } else {
+                vol = compute_vol(d);
+                func_02002654(
+                    (char *)&o->slot30[0] + off,
+                    9,
+                    note + 3,
+                    data_020585fc[f44 * 8 + ch],
+                    vol,
+                    0
+                );
+            }
+        } else {
+            vol = compute_vol(d);
+            func_02002654(
+                (char *)&o->slot30[0] + off,
+                9,
+                note,
+                data_020585fc[f44 * 8 + ch],
+                vol,
+                0
+            );
+        }
+        {
+            Obj *o2 = data_0206f658;
+            func_02042ff4((char *)&o2->slot30[0] + off, o2->field48);
+        }
+    }
 }

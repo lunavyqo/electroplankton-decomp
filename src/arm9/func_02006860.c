@@ -1,116 +1,94 @@
 // addr 0x02006860 size 0x1b0
+// NONMATCHING: state machine near-miss (div=108, size 428 vs 432)
 
-void func_020091a4(void);
+typedef struct {
+    char pad[0xa7e];
+    unsigned char idx;
+    char pad_a7f[5];
+    unsigned char mode;
+    unsigned char field_a85;
+    unsigned char field_a86;
+    unsigned char field_a87;
+    unsigned char field_a88;
+} G_020708a4;
 
-asm void func_02006860(void) {
-    stmdb sp!, {r4, lr}
-    sub sp, sp, #8
-    ldr r1, =0x020708a4
-    ldr r2, =0x02070cac
-    ldrb r3, [r1, #0xa7e]
-    ldrb r0, [r1, #0xa84]
-    mov r4, #0
-    ldrb r3, [r2, r3]
-    cmp r0, #0
-    beq loc_0200689c
-    cmp r0, #1
-    beq loc_020068c0
-    cmp r0, #2
-    beq loc_02006954
-    b loc_020069ac
-loc_0200689c:
-    cmp r3, #0x8c
-    blt loc_020069ac
-    ldr r0, =0x020712a4
-    mov r2, #1
-    strb r2, [r1, #0xa87]
-    strb r2, [r1, #0xa84]
-    strh r2, [r0, #0x50]
-    strb r3, [r1, #0xa85]
-    b loc_020069ac
-loc_020068c0:
-    cmp r3, #0x1e
-    bge loc_02006934
-    ldr r0, =0x020712a4
-    ldrb r2, [r1, #0xa85]
-    ldrh r3, [r0, #0x50]
-    strb r2, [r1, #0xa86]
-    strh r3, [r0, #0x52]
-    cmp r3, #0x3c
-    blo loc_0200691c
-    ldr r2, =0x88888889
-    mov r0, r3, lsr #0x1f
-    smull r1, ip, r2, r3
-    add ip, r3, ip
-    mov ip, ip, asr #5
-    add ip, r0, ip
-    mov r4, #0x16
-    cmp ip, #2
-    movge r4, #0x17
-    cmp ip, #5
-    movge r4, #0x18
-    cmp ip, #0xa
-    movge r4, #0x19
-    b loc_020069ac
-loc_0200691c:
-    cmp r3, #5
-    movhs r0, #2
-    strhsb r0, [r1, #0xa84]
-    strhsb r4, [r1, #0xa88]
-    strlob r4, [r1, #0xa84]
-    b loc_020069ac
-loc_02006934:
-    ldrb r0, [r1, #0xa85]
-    cmp r3, r0
-    ldr r0, =0x020712a4
-    strgtb r3, [r1, #0xa85]
-    ldrh r1, [r0, #0x50]
-    add r1, r1, #1
-    strh r1, [r0, #0x50]
-    b loc_020069ac
-loc_02006954:
-    ldrb r0, [r1, #0xa88]
-    add r0, r0, #1
-    strb r0, [r1, #0xa88]
-    ldrb r0, [r1, #0xa88]
-    cmp r0, #0x1e
-    bls loc_02006988
-    ldrb r0, [r1, #0xa87]
-    mov r1, #0
-    cmp r0, #4
-    addls r4, r0, #0x11
-    ldr r0, =0x020708a4
-    strb r1, [r0, #0xa84]
-    b loc_020069ac
-loc_02006988:
-    cmp r3, #0x8c
-    blt loc_020069ac
-    ldrb r3, [r1, #0xa87]
-    mov r2, #1
-    ldr r0, =0x020712a4
-    add r3, r3, #1
-    strb r3, [r1, #0xa87]
-    strh r2, [r0, #0x50]
-    strb r2, [r1, #0xa84]
-loc_020069ac:
-    cmp r4, #0
-    addle sp, sp, #8
-    ldmleia sp!, {r4, lr}
-    bxle lr
-    mov r1, #0x10
-    ldr r0, =0x020708a4
-    str r1, [sp]
-    ldrb r0, [r0, #0xa85]
-    mov r1, #0x8c
-    mov r2, #0xff
-    mov r3, #1
-    bl func_020091a4
-    ldr r2, =0x020712f8
-    ldr r1, =0x020708a4
-    strb r0, [r2, r4]
-    mov r0, #0
-    strb r0, [r1, #0xa84]
-    add sp, sp, #8
-    ldmia sp!, {r4, lr}
-    bx lr
+typedef struct {
+    char pad[0x50];
+    unsigned short field50;
+    unsigned short field52;
+} G_020712a4;
+
+extern G_020708a4 data_020708a4;
+extern unsigned char data_02070cac[];
+extern G_020712a4 data_020712a4;
+extern unsigned char data_020712f8[];
+
+int func_020091a4(int a, int b, int c, int d, int e);
+
+void func_02006860(void) {
+    int val;
+    int mode;
+    int out = 0;
+    int h;
+    int q;
+
+    val = (int)data_02070cac[data_020708a4.idx];
+    mode = (int)data_020708a4.mode;
+
+    if (mode == 0) {
+        if (val >= 0x8c) {
+            data_020708a4.field_a87 = 1;
+            data_020708a4.mode = 1;
+            data_020712a4.field50 = 1;
+            data_020708a4.field_a85 = (unsigned char)val;
+        }
+    } else if (mode == 1) {
+        if (val < 0x1e) {
+            data_020708a4.field_a86 = data_020708a4.field_a85;
+            h = (int)data_020712a4.field50;
+            data_020712a4.field52 = (unsigned short)h;
+            if ((unsigned)h >= 0x3c) {
+                q = h / 30;
+                out = 0x16;
+                if (q >= 2) out = 0x17;
+                if (q >= 5) out = 0x18;
+                if (q >= 10) out = 0x19;
+            } else {
+                if ((unsigned)h >= 5) {
+                    data_020708a4.mode = 2;
+                    data_020708a4.field_a88 = (unsigned char)out;
+                } else {
+                    data_020708a4.mode = (unsigned char)out;
+                }
+            }
+        } else {
+            if (val > (int)data_020708a4.field_a85) {
+                data_020708a4.field_a85 = (unsigned char)val;
+            }
+            data_020712a4.field50 = data_020712a4.field50 + 1;
+        }
+    } else if (mode == 2) {
+        data_020708a4.field_a88 = data_020708a4.field_a88 + 1;
+        if ((unsigned)data_020708a4.field_a88 > 0x1e) {
+            if ((unsigned)data_020708a4.field_a87 <= 4) {
+                out = (int)data_020708a4.field_a87 + 0x11;
+            }
+            data_020708a4.mode = 0;
+        } else {
+            if (val >= 0x8c) {
+                data_020708a4.field_a87 = data_020708a4.field_a87 + 1;
+                data_020712a4.field50 = 1;
+                data_020708a4.mode = 1;
+            }
+        }
+    }
+
+    if (out <= 0) {
+        return;
+    }
+    {
+        int r = func_020091a4((int)data_020708a4.field_a85, 0x8c, 0xff, 1, 0x10);
+        data_020712f8[out] = (unsigned char)r;
+        data_020708a4.mode = 0;
+    }
 }

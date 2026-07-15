@@ -21,7 +21,7 @@ drop the claim.
 | arm9   | 0x02054e50–0x02055aef | grok | 2026-07-13 | done | math+softfloat: cos/fabs/floor/frexp/ldexp/sin/_d_add/_d_dtof MATCH 1.2/sp2p3 |
 | arm9   | 0x020565ec–0x0205680b | grok | 2026-07-13 | active | soft-float cmp family — pure C near-miss (codegen wall) |
 | arm9   | 0x02057900–0x02058447 | lunavyqo | 2026-07-13 | done | runtime div+static: 57900/57ab0/57cbc/57eb8/583fc/58400/58408/58410 MATCH 1.2/sp2p3 |
-| arm9   | 0x02006154–0x0200740f | lunavyqo | 2026-07-15 | done | batch8: 6154/625c/6534/65d4/66f4/6860/6a10/6d90 MATCH 1.2/sp2p3 |
+| arm9   | 0x02006154–0x0200740f | lunavyqo | 2026-07-15 | active | pure C: 6154+6534 MATCH; 65d4/66f4 near (div3/5); rest NONMATCHING C drafts (no full-function asm) |
 
 ## How to claim
 
