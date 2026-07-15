@@ -24,6 +24,7 @@ drop the claim.
 | arm9   | 0x02006154–0x0200740f | lunavyqo | 2026-07-15 | active | pure C: 4/8 MATCH (6154,625c,6534,66f4); near: 65d4 div3, 6860 div4, 6a10/6d90 drafts |
 | arm9   | 0x02052c44–0x02054e27 | lunavyqo | 2026-07-15 | done | batch8: scalbn/rem_pio2/k_rem_pio2/k_cos/k_sin/atan+init 52c44/52e10 MATCH 1.2/sp2p3 |
 | arm9   | 0x020397e4–0x0203a667 | lunavyqo | 2026-07-15 | active | batch16: 11/16 MATCH + 4 NONMATCHING near-misses (1.2/sp2p3) |
+| arm9   | 0x020514e0–0x02051f2b | lunavyqo | 2026-07-15 | active | batch16: 14/16 MATCH; near: cf4 div8, 514e0 draft (1.2/sp2p3) |
 
 ## How to claim
 
