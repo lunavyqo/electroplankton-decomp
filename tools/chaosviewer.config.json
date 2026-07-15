@@ -1,13 +1,15 @@
 {
   "name": "electroplankton-decomp",
   "title": "Chaos Viewer",
-  "tagline": "Electroplankton matching decomp",
+  "tagline": "matching C from the chaos — Electroplankton",
   "github": "https://github.com/lunavyqo/electroplankton-decomp",
   "language": "C",
   "compiler": "mwccarm 1.2/sp2p3. Flags (C): -O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc",
-  "setup": "clone {github} and follow CONTRIBUTING.md. Supply your own legally dumped Electroplankton .nds, unpack locally (dsd), place mwccarm under tools/mwccarm/ (gitignored).",
+  "cppNote": "If a name starts with _Z (C++ mangled), write C++ with the FIRST LINE exactly //cpp",
+  "setup": "clone {github} and follow CONTRIBUTING.md (python deps + mwccarm under tools/mwccarm/ gitignored + unpack YOUR OWN cartridge dump with dsd / tools/unpack.py). Never commit the ROM or extracts.",
   "verifyCommand": "python tools/match.py --c yourfile.c --func {name} --addr 0x{addrHex} --size 0x{sizeHex} --version 1.2/sp2p3",
-  "readFirst": "README.md, CONTRIBUTING.md, notes/compiler.md, notes/legal.md. Coordinate via CLAIMS.md.",
-  "rules": "only your own legally dumped ROM; never commit the ROM, its assets, or extracted binaries - the one deliberate exception is annotated disassembly TEXT of still-unmatched functions on the chaos-data branch (text, not bytes/assets), same practice as other decomp projects committing .s files; write all C from scratch.",
+  "readFirst": "notes/matching-style.md (C not asm; matching loop; when stuck), notes/compiler.md (mwccarm 1.2/sp2p3 pin + flags), notes/match-attempts.md (attempt tree logging — experimental), CONTRIBUTING.md, notes/legal.md. Coordinate via CLAIMS.md.",
+  "rules": "only your own legally dumped ROM; never commit the ROM, its assets, or extracted binaries — the one deliberate exception is the annotated disassembly TEXT of still-unmatched functions on the chaos-data branch (text, not bytes/assets), same practice as decomp repos committing .s files; import symbol/struct knowledge (see CREDITS.md) but write all C from scratch; deliverable is C/C++ that goes through mwccarm then tools/match.py — never submit straight assembly as a match; target disassembly is the oracle to match, not source to paste.",
+  "nearMissNote": "If a function will not fully match after real effort, do not discard your best attempt — it is still valuable. Keep compiling C under src/ or scratch/ headed by one line: // NONMATCHING: <what still differs> (div=N from verify). Prefer PR'ing near-miss C drafts over abandoning to asm. Near-miss drafts are the highest-yield input to the next try — log every iteration (including no_progress) to config/match_attempts.jsonl via tools/log_attempt.py with functionId + unique attemptId + parentAttemptId (attempt tree). Full C sources stay in files, not in the jsonl.",
   "dataUrl": "https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json"
 }

@@ -10,14 +10,17 @@ machine only.
 
 ## Progress
 
-```
-Functions  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0.0%   0 / 1,950
-Code size  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0.0%   0 / 359,462 bytes
-```
+Atlas is regenerated on the `chaos-data` branch (CI / `tools/chaos_db_ci.py`).
+Rough scale: **~1,950** arm9 functions, early matching in progress — see the live
+viewer for current numbers.
 
 Live atlas (Chaos Viewer): paste the repo URL, or open with data preloaded:
 
 **https://tangosdev.github.io/chaos-viewer/?data=https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json**
+
+Terminal atlas + experimental attempt-tree prompts:
+[chaos-viewer-cli](https://github.com/lunavyqo/chaos-viewer-cli) with project
+convention **experimental** and this repo as `local_repo`.
 
 ## Legal and scope
 
@@ -75,6 +78,14 @@ Source that, when compiled with the original toolchain, produces bytes identical
 to the retail binary for the function under test. A function counts as matched
 only after a relocation-aware byte check against your local dump
 (`python tools/match.py …`).
+
+**Deliverable is C** that goes through mwccarm — not pasted assembly. Target
+disassembly is the oracle. See [notes/matching-style.md](notes/matching-style.md)
+and [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Experimental logging:** every try (including dead ends) is recorded as an
+attempt-tree node in `config/match_attempts.jsonl`
+([notes/match-attempts.md](notes/match-attempts.md)).
 
 ## Setup (short)
 

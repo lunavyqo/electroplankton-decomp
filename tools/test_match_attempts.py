@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for match attempt log (every try, including no progress)."""
+"""Tests for match attempt log (every try, including no progress + attempt tree)."""
 from __future__ import annotations
 
 import pathlib
@@ -16,7 +16,7 @@ from match_attempts import (  # noqa: E402
     load_attempts,
     normalize_attempt,
 )
-from match_provenance import ProvenanceError, configure  # noqa: E402
+from match_provenance import ProvenanceError, configure, make_id  # noqa: E402
 
 
 class AttemptNormalize(unittest.TestCase):
@@ -42,6 +42,14 @@ class AttemptNormalize(unittest.TestCase):
         self.assertFalse(r["improvedNearMiss"])
         self.assertEqual(r["sessionScope"], "focused")
         self.assertEqual(r["batchSize"], 1)
+        self.assertEqual(r["functionId"], "arm9:0x02000000")
+        self.assertEqual(r["id"], r["functionId"])
+        self.assertTrue(r["attemptId"])
+        self.assertEqual(len(r["attemptId"]), 32)  # uuid hex
+        self.assertIsNone(r["parentAttemptId"])
+        self.assertEqual(r["base"]["kind"], "scratch")
+        self.assertEqual(r["schemaVersion"], 1)
+        self.assertTrue(r["loggedAt"])
 
     def test_batch_scope(self):
         r = normalize_attempt(
@@ -142,12 +150,46 @@ class AttemptNormalize(unittest.TestCase):
                 }
             )
 
+    def test_parent_and_previous_base(self):
+        r = normalize_attempt(
+            {
+                "functionId": "arm9:0x200",
+                "module": "arm9",
+                "addr": 0x200,
+                "name": "foo",
+                "status": "no_progress",
+                "kind": "human",
+                "sessionScope": "focused",
+                "batchSize": 1,
+                "parentAttemptId": "deadbeefcafebabe0123456789abcdef",
+            }
+        )
+        self.assertEqual(r["parentAttemptId"], "deadbeefcafebabe0123456789abcdef")
+        self.assertEqual(r["base"]["kind"], "previous_attempt")
+        self.assertEqual(r["base"]["attemptId"], "deadbeefcafebabe0123456789abcdef")
+
+    def test_rejects_trivial_attempt_ids(self):
+        with self.assertRaises(ProvenanceError):
+            normalize_attempt(
+                {
+                    "id": "arm9:0x1",
+                    "module": "arm9",
+                    "addr": 1,
+                    "name": "f",
+                    "status": "no_progress",
+                    "kind": "human",
+                    "sessionScope": "focused",
+                    "batchSize": 1,
+                    "attemptId": "a1",
+                }
+            )
+
 
 class AttemptLog(unittest.TestCase):
     def test_append_every_try(self):
         with tempfile.TemporaryDirectory() as td:
             path = pathlib.Path(td) / "attempts.jsonl"
-            append_attempt(
+            a1 = append_attempt(
                 module="arm9",
                 addr=0x200,
                 name="foo",
@@ -160,7 +202,7 @@ class AttemptLog(unittest.TestCase):
                 batch_size=4,
                 path=path,
             )
-            append_attempt(
+            a2 = append_attempt(
                 module="arm9",
                 addr=0x200,
                 name="foo",
@@ -172,9 +214,10 @@ class AttemptLog(unittest.TestCase):
                 divergences=4,
                 prev_best_divergences=4,
                 session_scope="focused",
+                parent_attempt_id=a1["attemptId"],
                 path=path,
             )
-            append_attempt(
+            a3 = append_attempt(
                 module="arm9",
                 addr=0x200,
                 name="foo",
@@ -185,19 +228,25 @@ class AttemptLog(unittest.TestCase):
                 harness="h",
                 author="alice",
                 session_scope="focused",
+                parent_attempt_id=a2["attemptId"],
                 path=path,
             )
             rows = load_attempts(path)
             self.assertEqual(len(rows), 3)
             self.assertEqual(rows[0]["status"], "no_progress")
             self.assertEqual(rows[0]["sessionScope"], "batch")
+            self.assertEqual(rows[0]["functionId"], make_id("arm9", 0x200))
+            self.assertTrue(rows[0]["attemptId"])
+            self.assertEqual(rows[1]["parentAttemptId"], a1["attemptId"])
             self.assertEqual(rows[2]["status"], "matched")
             self.assertEqual(rows[2]["sessionScope"], "focused")
+            self.assertEqual(rows[2]["parentAttemptId"], a2["attemptId"])
             st = attempt_stats(rows)
             self.assertEqual(st["total"], 3)
             self.assertEqual(st["byStatus"]["no_progress"], 1)
             self.assertEqual(st["matchedFocused"], 1)
             self.assertEqual(st["bySessionScope"]["batch"], 1)
+            self.assertIn("m", st["modelsTried"])
 
 
 if __name__ == "__main__":
