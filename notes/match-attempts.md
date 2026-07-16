@@ -110,6 +110,18 @@ Rules:
 scratch file, and for a scored near-miss pass `--src` so
 `log_attempt.py` also upserts tip C into **`nearmiss/db.jsonl`**.
 
+### What counts as one try
+
+**One human/agent matching session (one prompt / one loop) = one attempt row.**
+
+- Log it with `log_attempt.py` (or the agent’s MATCH_RESULT ingest).
+- **`bank.py` is not a try.** Banking promotes matched C + provenance. It only
+  writes a `matched` attempt if this function has *never* been logged as matched
+  (legacy bank-only path). Re-running bank does **not** add more tries.
+
+So: log once when the try finishes → bank once to land `src/`. Do not expect
+three “matched” roots for a single batch match.
+
 **Do not** log pure asm as a successful path — deliverable is C through mwccarm
 ([matching-style.md](matching-style.md)).
 

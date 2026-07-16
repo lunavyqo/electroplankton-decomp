@@ -437,3 +437,23 @@ def attempt_stats(rows: list[dict]) -> dict[str, Any]:
         "matchedBatch": matched_batch,
         "modelsTried": sorted(models),
     }
+
+
+def has_attempt_with_status(
+    function_id: str,
+    status: str,
+    path: Optional[pathlib.Path] = None,
+) -> bool:
+    """True if the attempt log already has a row for this function with status."""
+    for r in load_attempts(path, function_id=function_id):
+        if r.get("status") == status:
+            return True
+    return False
+
+
+def is_bank_echo_row(row: dict) -> bool:
+    """True if this row is a bank.py auto-log (not a human/agent try)."""
+    if row.get("status") != "matched":
+        return False
+    note = (row.get("note") or "").strip().lower()
+    return note in ("banked", "bank", "bank.py")
