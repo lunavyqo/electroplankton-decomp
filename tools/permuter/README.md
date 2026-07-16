@@ -1,74 +1,96 @@
-# decomp-permuter integration (electroplankton-decomp)
+# decomp-permuter integration
 
-Wiring [decomp-permuter](https://github.com/simonlindholm/decomp-permuter) to
-this repo’s **mwccarm 1.2/sp2p3** toolchain — same idea as sm64ds-decomp
-`tools/permuter/`.
+Wiring [decomp-permuter](https://github.com/simonlindholm/decomp-permuter) to our mwccarm
+toolchain. The permuter brute-forces the **exact-codegen** tail of matching (register
+allocation, instruction ordering) by randomly applying semantics-preserving C
+transformations and scoring each compile against the target. This is the free,
+no-LLM way to clear the coloring wall that the fan-out floors at ~8% on.
 
-- **Semantics** (correct C): you / agent / near-miss tip  
-- **Codegen** (regalloc / order): permuter brute-force, free  
+The decomp-permuter `arm32_compile_example.sh` is itself written for **mwccarm on a DS
+decomp project** (pokeheartgold) with nearly identical flags to ours, so this is a proven
+fit, not an experiment.
 
-## One-time setup
+## Split-the-problem model
 
-```bash
-# From decomp root (vendor/ is gitignored)
-git clone https://github.com/simonlindholm/decomp-permuter vendor/decomp-permuter
-python -m pip install toml pcpp pycparser capstone pyelftools
-```
+- **Semantics** (what the function does -> logically-correct C): LLM fan-out / hand. Good.
+- **Codegen** (exact regalloc + ordering): the permuter, for free. This is our 8% wall.
 
-Need: unpacked ROM (`arm9/arm9.bin`), `tools/mwccarm/1.2/sp2p3/mwccarm.exe`.
+Stop paying LLM tokens to nail register allocation; let the permuter brute-force it.
 
-On **Windows**, decomp-permuter may need small local patches (see sm64ds-decomp
-`tools/permuter/README.md`). On **macOS/Linux**, bash `compile.sh` + wine/wibo
-or native paths as you already use for `match.py`.
+## Status: WORKING (validated 2026-06-20)
 
-## Single function
+End-to-end pipeline runs on our mwccarm toolchain, native Windows, no external objdump:
+- [x] **Compiler wrapper** (`mwccarm_compile.sh`): compiles a candidate `.c` to `.o` with
+  our canonical compiler+flags (1.2/sp2p3). Verified.
+- [x] **Capstone scorer** (`cap_objdump.py`): a drop-in for the permuter's external objdump
+  using capstone (which we already use). Handles mwccarm ELF candidates (extract `.text` +
+  `.rel.text` relocs) and a raw-bytes target. Wired via `objdump_command` in settings.toml,
+  so the permuter's stock `Scorer` (penalties regalloc=5, reorder=60, insert/delete=100) is
+  used unchanged. **Validated: scores 0 for a true match, 35 for the r0/r1 regalloc distance
+  on `func_020570c0`.**
+- [x] **Runner**: a permuter dir (`compile.sh` -> wrapper, `target.o`, `base.c`,
+  `settings.toml`) runs via `permuter.py <dir> --stop-on-zero -j N`. Confirmed it compiles,
+  scores, and hill-climbs (35 -> 20 on the toy function; tiny leafs have little permutation
+  surface -- real gains are on medium functions).
+- [x] **Import helper** (`import_func.py`): given `--module/--addr` (or `--name`) and a
+  `--base` seed, writes target.o (raw ROM bytes), target.o.relocs (offsets derived from the
+  seed's own `.rel.text` -- authoritative, incl. data-pool relocs that config omits),
+  compile.sh, base.c, and settings.toml. **PROVEN: cracked a real unmatched function** --
+  `OAM::EnableSubOAM` (0x020219f0), base score 20 -> 0, the permuter found `G[0]=(long)0`
+  (the cast shifts regalloc to match the ROM), independently oracle-verified and banked.
+- [x] **Batch runner** (`batch.py`): sweeps a pile of functions through the permuter and
+  auto-banks every oracle-verified score-0. Two seed sources:
+  - `--module/--max`: auto-find template-regperm functions (free). NOTE: this pile is
+    **currently exhausted** -- the strict templates already take what they can and we
+    cleared the regperm residue, so 0 remain at <=0x140. Kept for when new templates land.
+  - `--seeds FILE`: a JSONL of near-misses `{name|module+addr, c_source}` from ANY source.
+    **This is the real fuel.** A draft that compiles but doesn't match is often only
+    coloring/ordering blocked -- exactly what the permuter finishes. Validated end to end
+    (loaded a seed, permuted, cracked, oracle-verified, banked).
+- [x] **LLM -> permuter loop** (WIRED 2026-06-20): the fan-out now recovers its own misses.
+  1. The crack-worklist fan-out agents return a `near_misses` array (their closest attempt
+     that COMPILES but didn't byte-match) alongside verified `wins`.
+  2. `tools/agent_bank.py --apply` extracts them: drops non-compiling ones, banks any that actually
+     match (agent under-reported), and appends the rest as seeds to `progress/nearmiss.jsonl`.
+  3. `python tools/permuter/batch.py --seeds progress/nearmiss.jsonl --secs 120` permutes
+     each and auto-banks the oracle-verified score-0 matches.
+  Net: a draft that "compiles but misses" (correct logic, wrong register coloring) is no
+  longer thrown away -- the permuter finishes it for free. Each fan-out batch's ~92% miss
+  pile becomes permuter fuel. Validated piece by piece (near-miss extraction + --seeds crack);
+  a live fan-out run exercises the agent-emits-near_misses step end to end.
+  NOTE: keep the permuter a one-way consumer of near-misses; never feed its half-mutated
+  intermediates back to the LLM (causes the "doom loop / token burn" others report).
 
-```bash
-# Seed from nearmiss tip DB
-python tools/permuter/import_func.py --name func_02050928 --from-nearmiss
+## Setup (reproducing on a fresh clone)
 
-# Or seed from a file
-python tools/permuter/import_func.py --name func_02050928 --base scratch/try.c
+**Electroplankton:** `vendor/` is gitignored. This tree should already have
+`vendor/decomp-permuter` and `vendor/m2c` after local setup (copied or cloned).
+EP layout uses `arm9/arm9.bin` @ `0x02000000` via `tools/modules.py`.
+After a permuter score-0, verify with `tools/match.py` and stamp provenance with
+EP `tools/bank.py` (agent harvest banking is `tools/agent_bank.py`).
 
-# Run (after import prints the path)
-python vendor/decomp-permuter/permuter.py \
-  vendor/decomp-permuter/work/func_02050928 --stop-on-zero -j 4
 
-# Always re-verify before banking
-python tools/match.py --c vendor/decomp-permuter/work/func_02050928/output.c \
-  --func func_02050928 --addr 0x02050928 --size 0x... --version 1.2/sp2p3
-```
+`vendor/` is gitignored, so re-cloning decomp-permuter needs these one-time steps:
 
-## Batch from near-miss DB
+1. `git clone https://github.com/simonlindholm/decomp-permuter vendor/decomp-permuter`
+2. `python -m pip install toml pcpp pycparser capstone pyelftools`
+3. Windows-compat patches to the cloned permuter (all small, marked
+   `# Windows-compat (sm64ds-decomp)`):
+   - `src/compiler.py`: route `compile.sh` through `bash` on Windows; AND, when a `cc.txt`
+     sidecar exists next to it, call `mwccarm.exe` DIRECTLY (no bash) -- git-bash startup is
+     ~400ms/candidate, direct ~140ms (~3x throughput). `import_func.setup_dir` writes `cc.txt`.
+   - `src/main.py`: skip the Unix executable-bit check on Windows.
+   - `src/preprocess.py`: use the in-process `pcpp` preprocessor instead of the external
+     `cpp` binary (absent on Windows).
+   - `src/objdump.py` (`get_arch`): default to ARM32 for a non-ELF file, so a raw-bytes
+     `target.o` (ROM slice) is accepted.
+4. Per-function: a dir with `compile.sh` (-> `mwccarm_compile.sh`), `target.o`, `base.c`,
+   and `settings.toml` setting `compiler_type="mwcc"`, `func_name`, and
+   `objdump_command = "python <repo>/tools/permuter/cap_objdump.py"`.
 
-```bash
-# List candidates
-python tools/permuter/batch.py --from-nearmiss --max-div 12 --limit 10 --dry-run
+## Why this is the lever
 
-# Permute (oracle-check each win)
-python tools/permuter/batch.py --from-nearmiss --max-div 8 --limit 5 --secs 120
-
-# Optional: bank wins (still runs match.py first)
-python tools/permuter/batch.py --from-nearmiss --max-div 6 --limit 3 --secs 180 --bank
-```
-
-Seeds JSONL (any source):
-
-```json
-{"name": "func_02050928", "c_source": "/* C */\n..."}
-```
-
-```bash
-python tools/permuter/batch.py --seeds my_seeds.jsonl --secs 90
-```
-
-## Files (repo-owned glue)
-
-| File | Role |
-|------|------|
-| `mwccarm_compile.sh` | Compile wrapper (same flags as `match.py`) |
-| `cap_objdump.py` | Capstone scorer (no arm-none-eabi-objdump) |
-| `import_func.py` | Build one permuter work dir from symbols + ROM + seed |
-| `batch.py` | Sweep seeds / nearmiss tips |
-
-`vendor/decomp-permuter/` is **not** committed (see root `.gitignore` `vendor/`).
+The fan-out floors at ~8% on the hard residue because the LLM can't reliably reproduce
+mwccarm's non-local register allocation. The permuter brute-forces exactly that, for free.
+Best workflow: LLM/m2c writes logically-correct C (scores low but nonzero), permuter drives
+it to a byte match. See the project memory `sm64ds-coloring` and `notes/mwccarm-codegen.md`.

@@ -56,7 +56,8 @@ python tools/chaos_db_ci.py
 - Matched: `author` from **git**, `matchProvenance` from ledger (**how**)  
 - Unmatched near-misses: `div` from best `near_miss` in `match_attempts.jsonl`  
 
-Design overview for proposing this stack: [proposal-logging-for-tango.md](proposal-logging-for-tango.md).
+Attempt-tree schema and operator notes: [match-attempts.md](match-attempts.md).
+Near-miss tip store: [nearmiss.md](nearmiss.md).
 
 ## Attempt history (every try — attempt tree)
 
