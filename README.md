@@ -11,8 +11,8 @@ machine only.
 ## Progress
 
 <!-- progress:start -->
-Functions  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    5.8%   114 / 1,950
-Code size  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    5.9%   21,216 / 359,462 bytes
+Functions  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6.2%   121 / 1,950
+Code size  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6.1%   21,820 / 359,462 bytes
 <!-- progress:end -->
 
 Atlas is regenerated on the `chaos-data` branch by GitHub Actions
