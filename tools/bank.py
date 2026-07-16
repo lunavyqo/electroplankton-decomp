@@ -19,9 +19,8 @@ Examples:
   python tools/bank.py --src src/arm9/func_02001b44.c \\
       --kind human --by lunavyqo
 
-  # AI match: --author = classic credit; model/harness = how (slugs)
+  # AI match: who = git first-adder (like sm64ds); model/harness = how only
   python tools/bank.py --src src/arm9/func_0200abcd.c --kind ai \\
-      --author lunavyqo \\
       --model "Grok 4.5" --reasoning high --harness "Grok Build" --no-verify
 
   # From a tools copy outside the tree:
@@ -53,12 +52,16 @@ from match_provenance import (  # noqa: E402
     ProvenanceError,
     append_ledger_row,
     configure,
+    is_agent_credit,
     load_ledger,
     make_id,
     provenance_from_cli_args,
     repo as get_repo,
+    resolve_credit_author,
     TOKEN_HELP,
 )
+from nearmiss_db import remove as nearmiss_remove  # noqa: E402
+
 
 FUNC_RE = re.compile(
     r"^(\S+)\s+kind:function\((?:arm|thumb),size=0x([0-9a-fA-F]+)\).*?addr:0x([0-9a-fA-F]+)"
@@ -185,7 +188,10 @@ def main() -> None:
         "--author",
         "--by",
         dest="author",
-        help="Classic credit: GitHub login → function.author (not matchProvenance)",
+        help=(
+            "Optional override for classic credit (GitHub login). "
+            "Default: git first-adder of src/ (sm64ds-style), never agent names like grok"
+        ),
     )
     ap.add_argument("--note", help="Optional note on human how-record only")
     ap.add_argument(
@@ -290,10 +296,27 @@ def main() -> None:
 
     rid = make_id(module, addr)
 
+    def _rel_src(p: pathlib.Path | None) -> str | None:
+        if not p or not p.is_file():
+            return None
+        try:
+            return p.resolve().relative_to(get_repo().resolve()).as_posix()
+        except ValueError:
+            return None
+
+    # Resolve credit early for dry-run (src may only exist after --promote).
+    credit_preview = resolve_credit_author(_rel_src(src_path), explicit=args.author)
+    if args.author and is_agent_credit(args.author):
+        print(
+            f"WARNING: --author {args.author!r} looks like an agent/harness name; "
+            f"using git credit {credit_preview!r} instead (sm64ds-style who).",
+            file=sys.stderr,
+        )
+
     if args.dry_run:
         print(f"dry-run id={rid} name={name} module={module} addr=0x{addr:08x}")
         print(f"dry-run src={src_path} c={c_path}")
-        print(f"dry-run author={args.author!r}  (classic credit field)")
+        print(f"dry-run author={credit_preview!r}  (git who; not matchProvenance)")
         print(f"dry-run matchProvenance={json_dumps(prov)}  (how only)")
         print("dry-run: no ledger write")
         return
@@ -351,13 +374,21 @@ def main() -> None:
             file=sys.stderr,
         )
 
+    credit = resolve_credit_author(src_rel, explicit=args.author)
+    if not credit:
+        print(
+            "WARNING: could not resolve git credit author "
+            "(commit the src file or set git user.name/email). "
+            "Ledger how-record will still write; who may be empty.",
+            file=sys.stderr,
+        )
     row = append_ledger_row(
         module=module,
         addr=addr,
         name=name,
         provenance=prov,
         src_path=src_rel,
-        author=args.author,
+        author=credit,  # already git-resolved; never agent slug
     )
     who = row.get("author") or "(no author)"
     print(
@@ -374,7 +405,7 @@ def main() -> None:
             model=args.model,
             reasoning=args.reasoning,
             harness=args.harness,
-            author=args.author,
+            author=credit,
             src_path=src_rel,
             note="banked",
             session_scope=args.session_scope,
@@ -383,6 +414,9 @@ def main() -> None:
         print("Logged attempt status=matched → config/match_attempts.jsonl")
     except ProvenanceError as e:
         print(f"WARNING: banked but failed to log attempt: {e}", file=sys.stderr)
+    # Matched functions leave the near-miss tip store (sm64ds prune-matched).
+    if nearmiss_remove(module, addr):
+        print(f"Pruned near-miss tip for {module}:{addr:#x} from nearmiss/db.jsonl")
     print("OK — regenerate atlas with: python tools/chaos_db_ci.py")
 
 

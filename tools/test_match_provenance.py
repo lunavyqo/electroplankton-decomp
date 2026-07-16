@@ -17,11 +17,13 @@ from match_provenance import (  # noqa: E402
     ProvenanceError,
     append_ledger_row,
     configure,
+    is_agent_credit,
     is_repo_root,
     load_ledger,
     make_id,
     normalize_provenance,
     provenance_from_cli_args,
+    resolve_credit_author,
     resolve_repo,
     slugify_token,
     validate_match_provenance,
@@ -242,6 +244,10 @@ class LedgerAndAtlas(unittest.TestCase):
                 "--harness",
                 "Grok Build",
                 "--no-verify",
+                "--session-scope",
+                "focused",
+                "--batch-size",
+                "1",
                 "--dry-run",
             ],
             cwd="/tmp",  # not the repo — forces --repo path
@@ -252,6 +258,8 @@ class LedgerAndAtlas(unittest.TestCase):
         self.assertIn("grok-4.5", r.stdout)
         self.assertIn("grok-build", r.stdout)
         self.assertIn("REPO =", r.stdout)
+        # Who is git credit, not agent — dry-run should not force author=grok
+        self.assertNotIn("author='grok'", r.stdout)
 
     def test_bank_cli_rejects_incomplete_ai(self):
         bank = TOOLS / "bank.py"
@@ -276,6 +284,10 @@ class LedgerAndAtlas(unittest.TestCase):
                 "high",
                 # harness intentionally missing
                 "--no-verify",
+                "--session-scope",
+                "focused",
+                "--batch-size",
+                "1",
             ],
             cwd=repo,
             capture_output=True,
@@ -284,6 +296,20 @@ class LedgerAndAtlas(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("provenance", (r.stderr + r.stdout).lower())
 
+    def test_agent_names_are_not_credit(self):
+        self.assertTrue(is_agent_credit("grok"))
+        self.assertTrue(is_agent_credit("grok-4.5"))
+        self.assertTrue(is_agent_credit("claude-opus-4"))
+        self.assertFalse(is_agent_credit("lunavyqo"))
+        # explicit grok must not win over a real path with git history
+        who = resolve_credit_author(
+            "src/arm9/func_020092ac.c",
+            explicit="grok",
+            root=TOOLS.parent,
+        )
+        self.assertNotEqual(who, "grok")
+        if who:
+            self.assertFalse(is_agent_credit(who))
 
 if __name__ == "__main__":
     unittest.main()

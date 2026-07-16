@@ -1,0 +1,84 @@
+# On every push to main, regenerate derived progress views from committed
+# data (same shape as sm64ds-decomp update-chaos-data):
+#   - chaos-db.json on the chaos-data branch (viewer atlas; details/ preserved)
+#   - contributions.json + README progress bar on main
+#
+# No ROM. No match verification. details/ chunks need a local ROM regen and are
+# kept as-is on chaos-data (refreshed only when someone pushes them there).
+name: update-chaos-data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "config/**"
+      - "nearmiss/**"
+      - "tools/chaos_db_ci.py"
+      - "tools/chaosviewer.config.json"
+      - "tools/progress.py"
+      - "attribution.json"
+      - ".github/workflows/update-chaos-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chaos-data
+  cancel-in-progress: true
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: per-function authors come from git log
+
+      - uses: actions/checkout@v4
+        with:
+          ref: chaos-data
+          path: _chaos_data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate chaos-db.json + contributions.json
+        run: python tools/chaos_db_ci.py --out _chaos_data/chaos-db.json --contrib-out contributions.json
+
+      - name: Push chaos-data if atlas changed
+        run: |
+          set -euo pipefail
+          cd _chaos_data
+          if git diff --quiet -- chaos-db.json; then
+            echo "no data change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add chaos-db.json
+          git commit -m "Refresh Chaos Viewer data from $(git -C .. rev-parse --short HEAD)"
+          git push origin chaos-data
+
+      - name: Refresh README progress bar
+        run: python tools/progress.py --write-readme --from-db _chaos_data/chaos-db.json
+
+      - name: Commit progress refresh on main if changed
+        # README bar + contributions in ONE commit (sm64ds also commits treemap;
+        # this repo has no tools/treemap.py yet — atlas publish is the critical path).
+        # Safe from retrigger loops: workflow does not watch README.md or contributions.json.
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if [ -f contributions.json ]; then git add contributions.json; fi
+          if git diff --cached --quiet; then
+            echo "progress unchanged"
+            exit 0
+          fi
+          git commit -m "Refresh progress (README, contributions)"
+          git pull --rebase origin main
+          git push origin main

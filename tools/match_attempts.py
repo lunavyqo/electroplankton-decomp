@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Append-only log of every matching *attempt* (experimental).
 
-Unlike match_provenance (final how-record on bank) and nearmiss best-draft,
-this log keeps **every try** — including no progress, no near-miss improvement,
-compile failures, and failed verifies.
+Unlike match_provenance (final how-record on bank) and nearmiss/db.jsonl
+(best tip **C** only), this log keeps **every try** as metadata — including no
+progress, no near-miss improvement, compile failures, and failed verifies.
+
 
 Store: config/match_attempts.jsonl  (one JSON object per line, never rewritten)
 

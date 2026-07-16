@@ -10,12 +10,14 @@ Examples:
       --author lunavyqo --session-scope focused --batch-size 1 \\
       --note "permuter stuck"
 
-  # Continue from a prior attempt node
+  # Near-miss with C file → also upserts tip into nearmiss/db.jsonl
   python tools/log_attempt.py --func func_02001a64 \\
       --status near_miss --divergences 6 --prev-best 4 \\
+      --src scratch/func_02001a64.c \\
       --kind ai --model grok-4.5 --reasoning high --harness grok-build \\
       --session-scope focused --batch-size 1 \\
       --parent-attempt-id <priorAttemptId>
+
 
   # Successful match (also bank with bank.py)
   python tools/log_attempt.py --func … --status matched --kind ai …
@@ -40,6 +42,8 @@ from match_provenance import (  # noqa: E402
     make_id,
 )
 from bank import load_symbol  # noqa: E402
+from nearmiss_db import upsert_from_file  # noqa: E402
+
 
 ADDR_IN_NAME = re.compile(r"func_([0-9a-fA-F]{6,8})$", re.I)
 
@@ -198,6 +202,48 @@ def main() -> None:
         f"scope={row.get('sessionScope')} batchSize={row.get('batchSize')} "
         f"improved={row.get('improvedNearMiss')} kind={row['kind']}"
     )
+
+    # SM64DS-shaped tip store: keep full C of the *best* near-miss only.
+    if (
+        args.status == "near_miss"
+        and args.src is not None
+        and args.divergences is not None
+        and args.divergences > 0
+    ):
+        src_file = args.src if args.src.is_absolute() else root / args.src
+        if src_file.is_file():
+            size = None
+            info = load_symbol(name)
+            if info:
+                size = info[2]
+            action, tip = upsert_from_file(
+                src_file=src_file,
+                module=module,
+                addr=addr,
+                name=name,
+                divergences=args.divergences,
+                size=size,
+                source=args.label or "log_attempt",
+            )
+            if tip is not None:
+                print(
+                    f"Near-miss tip {action}: nearmiss/db.jsonl "
+                    f"div={tip['divergences']} c_bytes={len(tip.get('c_source') or '')}"
+                )
+            else:
+                print(f"Near-miss tip: {action} (no DB write)")
+        else:
+            print(
+                f"WARNING: --src {src_file} missing; attempt logged but tip C not saved",
+                file=sys.stderr,
+            )
+    elif args.status == "near_miss" and args.divergences and args.divergences > 0:
+        print(
+            "NOTE: near_miss without --src: attempt metadata only. "
+            "Pass --src path.c to save tip C in nearmiss/db.jsonl (sm64ds-style).",
+            file=sys.stderr,
+        )
+
     if args.stats:
         all_rows = load_attempts(function_id=make_id(module, addr))
         print(f"stats: {attempt_stats(all_rows)}")
