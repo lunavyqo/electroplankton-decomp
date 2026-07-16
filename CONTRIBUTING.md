@@ -40,6 +40,19 @@ After merge to `main`, CI updates
 `chaos-data/chaos-db.json`. Open the viewer against that atlas (or paste this
 repo URL into Chaos Viewer), not a hand-copied dump.
 
+### Permuter (optional, SM64DS-style)
+
+Near-miss tips that compile but miss by coloring/order: run
+[decomp-permuter](https://github.com/simonlindholm/decomp-permuter) via our glue:
+
+```bash
+git clone https://github.com/simonlindholm/decomp-permuter vendor/decomp-permuter
+python tools/permuter/import_func.py --name func_….c --from-nearmiss
+python tools/permuter/batch.py --from-nearmiss --max-div 8 --limit 5 --secs 120
+```
+
+`vendor/` is gitignored. Always re-check with `match.py` before banking.
+
 ## Get in touch / claims
 
 - Coordinate in [CLAIMS.md](CLAIMS.md) so two people do not grind the same range.

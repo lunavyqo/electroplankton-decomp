@@ -437,3 +437,15 @@ def attempt_stats(rows: list[dict]) -> dict[str, Any]:
         "matchedBatch": matched_batch,
         "modelsTried": sorted(models),
     }
+
+
+def has_attempt_with_status(
+    function_id: str,
+    status: str,
+    path: Optional[pathlib.Path] = None,
+) -> bool:
+    """True if the attempt log already has a row for this function with status."""
+    for r in load_attempts(path, function_id=function_id):
+        if r.get("status") == status:
+            return True
+    return False

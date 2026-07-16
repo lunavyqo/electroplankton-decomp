@@ -47,7 +47,7 @@ _TOOLS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
-from match_attempts import append_attempt  # noqa: E402
+from match_attempts import append_attempt, has_attempt_with_status  # noqa: E402
 from match_provenance import (  # noqa: E402
     ProvenanceError,
     append_ledger_row,
@@ -394,26 +394,38 @@ def main() -> None:
     print(
         f"Banked {row['id']}: author={who} how={json_dumps(row['matchProvenance'])}"
     )
-    # Full attempt log: every bank is also a matched attempt.
-    try:
-        append_attempt(
-            module=module,
-            addr=addr,
-            name=name,
-            status="matched",
-            kind=args.kind,
-            model=args.model,
-            reasoning=args.reasoning,
-            harness=args.harness,
-            author=credit,
-            src_path=src_rel,
-            note="banked",
-            session_scope=args.session_scope,
-            batch_size=args.batch_size,
+    # Banking is NOT a new try. One prompt/session try should already be in
+    # match_attempts.jsonl (log_attempt / MATCH_RESULT). Only append a matched
+    # row if this function has never been logged as matched (legacy bank-only flow).
+    fid = make_id(module, addr)
+    if has_attempt_with_status(fid, "matched"):
+        print(
+            "Skip attempt log: matched try already recorded for this function "
+            "(bank is not a separate try)."
         )
-        print("Logged attempt status=matched → config/match_attempts.jsonl")
-    except ProvenanceError as e:
-        print(f"WARNING: banked but failed to log attempt: {e}", file=sys.stderr)
+    else:
+        try:
+            append_attempt(
+                module=module,
+                addr=addr,
+                name=name,
+                status="matched",
+                kind=args.kind,
+                model=args.model,
+                reasoning=args.reasoning,
+                harness=args.harness,
+                author=credit,
+                src_path=src_rel,
+                note="banked",
+                session_scope=args.session_scope,
+                batch_size=args.batch_size,
+            )
+            print(
+                "Logged attempt status=matched → config/match_attempts.jsonl "
+                "(no prior matched try; bank-only path)"
+            )
+        except ProvenanceError as e:
+            print(f"WARNING: banked but failed to log attempt: {e}", file=sys.stderr)
     # Matched functions leave the near-miss tip store (sm64ds prune-matched).
     if nearmiss_remove(module, addr):
         print(f"Pruned near-miss tip for {module}:{addr:#x} from nearmiss/db.jsonl")
