@@ -449,11 +449,3 @@ def has_attempt_with_status(
         if r.get("status") == status:
             return True
     return False
-
-
-def is_bank_echo_row(row: dict) -> bool:
-    """True if this row is a bank.py auto-log (not a human/agent try)."""
-    if row.get("status") != "matched":
-        return False
-    note = (row.get("note") or "").strip().lower()
-    return note in ("banked", "bank", "bank.py")
