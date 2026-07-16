@@ -6,6 +6,39 @@ that compiles with the original toolchain to bytes **identical** to the retail
 ARM9 binary. There are ~1,950 arm9 functions in the atlas — every match is real
 progress.
 
+## Standards (read this)
+
+This project is intentionally aligned with:
+
+- **[sm64ds-decomp](https://github.com/tangosdev/sm64ds-decomp)** — matching layout,
+  `nearmiss/db.jsonl`, local verify, claims, `chaos-data` atlas publish
+- **[chaos-viewer](https://github.com/tangosdev/chaos-viewer)** — atlas schema and
+  live fetch of published `chaos-db.json` (not a frozen manual copy)
+
+**Plus** experimental logging on top of that spine (attempt tree + match
+provenance). Do not invent a second system that replaces SM64DS store roles.
+
+### Workflow (PRs)
+
+- Work on a **branch**, open a **PR**, **squash-merge** to `main`, delete the branch.
+- Prefer **Conventional Commit** PR titles (`feat:`, `fix:`, `ci:`, `docs:`, or a
+  clear match title like historical match PRs).
+- Keep match batches separate from tools/CI/docs when practical.
+- **No** GitHub Actions that compile against the ROM (mwccarm stays local).
+
+### Where things go
+
+| You have… | Put it… |
+|-----------|---------|
+| Byte-exact match | `src/…` after local `match.py` MATCH |
+| Best near-miss C + div | `nearmiss/db.jsonl` (commit it) |
+| Every try (experimental) | `config/match_attempts.jsonl` — **one session/prompt = one try**; bank is not a try |
+| Final how on match | `config/match_provenance.jsonl` via `bank.py` |
+| Ghidra scaffolds | local `ghidra_out/` only — never commit |
+
+After merge to `main`, CI updates
+`chaos-data/chaos-db.json`. Open the viewer against that atlas (or paste this
+repo URL into Chaos Viewer), not a hand-copied dump.
 
 ### Permuter (optional, SM64DS-style)
 
