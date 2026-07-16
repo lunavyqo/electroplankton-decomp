@@ -15,17 +15,12 @@ Functions  █░░░░░░░░░░░░░░░░░░░░░░
 Code size  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6.1%   21,820 / 359,462 bytes
 <!-- progress:end -->
 
-Every arm-mode function as a treemap (green = matched). Regenerate with
-`python tools/treemap.py --svg docs/progress-treemap.svg --out docs/progress-treemap.html`.
+Progress map is **Chaos Viewer** (not a static treemap). Atlas is regenerated on
+the `chaos-data` branch by GitHub Actions (`.github/workflows/update-chaos-data.yml`
+— same idea as sm64ds-decomp: committed `src/` + `nearmiss/db.jsonl` → `chaos-db.json`,
+no ROM).
 
-![Decompilation progress treemap](docs/progress-treemap.svg)
-
-Atlas is regenerated on the `chaos-data` branch by GitHub Actions
-(`.github/workflows/update-chaos-data.yml` — same idea as sm64ds-decomp: committed
-`src/` + `nearmiss/db.jsonl` → `chaos-db.json`, no ROM). See the live viewer for
-the map.
-
-Live atlas (Chaos Viewer): paste the repo URL, or open with data preloaded:
+Live atlas: paste the repo URL, or open with data preloaded:
 
 **https://tangosdev.github.io/chaos-viewer/?data=https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json**
 

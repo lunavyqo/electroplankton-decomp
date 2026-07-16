@@ -201,7 +201,7 @@ and adapted to EP’s `arm9/` layout (base `0x02000000`):
 | `tools/m2c_draft.py` | Semantic draft via local `vendor/m2c` ([notes/m2c-setup.md](notes/m2c-setup.md)) |
 | `tools/permuter/` | decomp-permuter wrappers ([tools/permuter/README.md](tools/permuter/README.md)) |
 | `tools/ghidra/` + `ghidra_targets.py` | Local decompiler scaffolds ([notes/ghidra-scaffolds.md](notes/ghidra-scaffolds.md)) |
-| `tools/treemap.py` / `decomp_report.py` | Progress treemap / decomp.dev report |
+| `tools/decomp_report.py` | Optional decomp.dev report (ROM-free) |
 | `tools/modules.py` / `names.py` / `relocs.py` | Module + symbol + reloc registry |
 
 `progress/` and `vendor/` stay gitignored (local ledgers, m2c, decomp-permuter).

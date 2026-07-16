@@ -4,7 +4,7 @@
 
 decomp.dev ingests objdiff-format reports from a GitHub Actions artifact named
 "<version>-report" (see .github/workflows/report.yml). This reads the same
-committed-data chaos-db.json that powers the README bar and the treemap, so the
+committed-data chaos-db.json that powers the README bar and Chaos Viewer atlas, so
 decomp.dev numbers always agree with the atlas. No ROM or extracted binaries are
 needed: matched status and sizes come from committed src/ and config symbols.
 

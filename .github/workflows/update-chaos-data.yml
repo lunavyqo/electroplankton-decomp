@@ -77,9 +77,9 @@ jobs:
         run: python tools/progress.py --write-readme --from-db _chaos_data/chaos-db.json
 
       - name: Commit progress refresh on main if changed
-        # README bar + contributions in ONE commit (sm64ds also commits treemap;
-        # this repo has no tools/treemap.py yet — atlas publish is the critical path).
-        # Safe from retrigger loops: workflow does not watch README.md or contributions.json.
+        # README bar + contributions in ONE commit. Progress map is Chaos Viewer
+        # (no static treemap). Safe from retrigger loops: workflow does not watch
+        # README.md or contributions.json.
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"

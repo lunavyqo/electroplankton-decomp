@@ -14,8 +14,8 @@ paramclone, bank_harvest, crunch, nearmiss_db, ...) goes through here, so:
     of being silently swallowed.
 
 Two done-set flavors, because they answer different questions:
-  matched_set()  -- byte-exact matches only (matched.jsonl). Use where "done"
-                    means "verified match": treemap coloring, coloring study,
+  matched_set()  -- byte-exact matches only (matched.jsonl + src/). Use where
+                    "done" means "verified match": progress, coloring study,
                     example selection, clone/paramclone template side, the
                     near-miss DB's is-it-still-pending check.
   load_done()    -- matched PLUS parked (nonmatching.jsonl). Use where "done"
@@ -91,7 +91,7 @@ def _src_matched_set():
 
     Electroplankton (and many SM64DS workflows) treat committed `src/` as the
     real match store. `progress/matched.jsonl` is optional / local. Without
-    scanning src/, treemap/swarm/clone would report 0% on a healthy tree.
+    scanning src/, swarm/clone would report 0% on a healthy tree.
     """
     import re
 

@@ -3,9 +3,9 @@
 # decomp.dev's GitHub app watches for a completed workflow run, downloads any
 # artifact named "<version>-report", and parses report.json inside it. The report
 # is built ROM-free from committed data: chaos_db_ci.py regenerates the same
-# chaos-db.json that feeds the README bar and the treemap, then decomp_report.py
-# converts it to the objdiff report schema, so the decomp.dev numbers match the
-# atlas exactly.
+# chaos-db.json that feeds the README bar and Chaos Viewer atlas, then
+# decomp_report.py converts it to the objdiff report schema so decomp.dev
+# numbers match the atlas.
 #
 # One-time setup after this lands on main: register the repo at
 # https://decomp.dev/manage/new (name "Electroplankton", slug electroplankton, platform
