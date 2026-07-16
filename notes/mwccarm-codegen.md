@@ -561,7 +561,7 @@ The 6g u64-mask launder was documented as a lever for address *materialization*
 (forcing `add rX, base, #off` + `[rX]`). It ALSO fixes a distinct problem: a pooled
 global sitting in the WRONG register on an otherwise byte-exact function.
 
-**Symptom (pure-coloring near-miss):** falign shows the instruction stream is identical
+**Symptom (pure-coloring near-miss):** fdiff / size compare shows the instruction stream is identical
 (0 insert / 0 delete, correct size) but a pooled global's base is colored to the leftover
 register (typically r3), and that one swap ripples into ~25 differing words. On
 func_ov024_02111350 the ROM held the sincos table base (`data_02082214`) in r0 and the

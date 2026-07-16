@@ -157,7 +157,7 @@ Before merging matched C, verify against your own dump:
 python tools/pr_validate.py --base origin/main
 # or one file:
 python tools/match.py --c src/arm9/func_….c --func NAME --addr 0x… --size 0x… --version 1.2/sp2p3
-# iteration oracle / size-tolerant align:
+# iteration oracle:
 python tools/fdiff.py --c … --name … --module arm9 --addr 0x… --size 0x…
 ```
 
@@ -165,7 +165,7 @@ There is no cloud match CI for now (ROM + mwccarm stay on your machine only).
 Optional ROM-free **decomp.dev** report workflow: `.github/workflows/report.yml`.
 
 Tooling is aligned with [sm64ds-decomp](https://github.com/tangosdev/sm64ds-decomp)
-(`modules`, `swarm`/`sweep`, `fdiff`/`falign`, `linkcheck`, `worklist`, permuter
+(`modules`, `swarm`/`sweep`, `fdiff`, `linkcheck`, `worklist`, permuter
 wrappers, Ghidra dump, etc.) plus EP experimental attempt/provenance logging.
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

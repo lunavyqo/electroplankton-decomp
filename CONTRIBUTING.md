@@ -161,8 +161,6 @@ Setup details: [notes/setup-mwccarm.md](notes/setup-mwccarm.md),
      --version 1.2/sp2p3
    # Per-instruction oracle while iterating:
    python tools/fdiff.py --c yourfile.c --name NAME --module arm9 --addr 0x.. --size 0x..
-   # Size still wrong while building a large function:
-   python tools/falign.py --c yourfile.c --name NAME --module arm9 --addr 0x.. --size 0x..
    ```
    Iterate until `match.py` reports a **MATCH**.
 5. **Reloc destinations** (calls / globals): a byte match wildcards reloc slots.
