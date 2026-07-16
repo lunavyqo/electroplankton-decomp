@@ -2,6 +2,8 @@
 """Match method provenance + durable ledger for experimental atlas tracking.
 
 WHO (credit / contributor colors) = classic function field `author` (GitHub login).
+  Same rule as sm64ds chaos_db_ci: prefer **git** first-adder of the surviving
+  src/ file — never the AI/harness name (no "grok" as author).
 HOW  (method)                     = matchProvenance only:
 
   human:  {"kind":"human", "note"?: str}
@@ -11,7 +13,7 @@ Ledger row (config/match_provenance.jsonl):
   {id, module, addr, name, author?, srcPath?, matchProvenance}
 
 AI how-records require non-empty model, reasoning, harness.
-Legacy matchProvenance.by is migrated into row.author on load, then dropped.
+Legacy matchProvenance.by is NOT used for credit if it looks like an agent/harness.
 
 Token form (after normalize): spaces → hyphens, lowercased.
   GOOD: grok-4.5, grok-build   BAD display: "Grok 4.5" (auto-slugified)
@@ -24,6 +26,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 from typing import Any, Optional
 
 # Module-level defaults; call configure(repo) before banking if scripts live outside the tree.
@@ -41,10 +44,212 @@ TOKEN_HELP = (
     "(display names like 'Grok 4.5' are auto-slugified)"
 )
 
+# GitHub noreply: 60808132+lunavyqo@users.noreply.github.com or lunavyqo@users.noreply…
+LOGIN_RE = re.compile(r"^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$", re.I)
+
+# Never treat these as classic credit (agent / model / harness product names).
+_AGENT_CREDIT_BLOCKLIST = frozenset(
+    {
+        "grok",
+        "claude",
+        "codex",
+        "cursor",
+        "antigravity",
+        "gpt",
+        "openai",
+        "anthropic",
+        "gemini",
+        "deepseek",
+        "composer",
+        "chatgpt",
+        "assistant",
+        "bot",
+        "agent",
+        "ai",
+        "llm",
+        "unknown",
+        "none",
+        "null",
+        "n/a",
+        "na",
+    }
+)
+
 
 class ProvenanceError(ValueError):
     """Invalid or incomplete match provenance."""
 
+
+def is_agent_credit(handle: Optional[str]) -> bool:
+    """True if this string looks like an agent/harness name, not a human GitHub login."""
+    if not handle or not str(handle).strip():
+        return True
+    s = str(handle).strip().lower()
+    if s in _AGENT_CREDIT_BLOCKLIST:
+        return True
+    # model/harness slugs often contain version digits: grok-4.5, claude-opus-4
+    if re.match(
+        r"^(grok|claude|gpt|gemini|deepseek|composer|codex|cursor|antigravity|"
+        r"sonnet|opus|haiku|llama|mistral|kimi|glm|stepfun|muse)([-._].*)?$",
+        s,
+    ):
+        return True
+    if "build" in s and any(x in s for x in ("grok", "claude", "cursor", "codex")):
+        return True
+    return False
+
+
+def handle_from_git_identity(name: str, email: str) -> str:
+    """git author → GitHub-ish login (sm64ds chaos_db_ci rule)."""
+    email = (email or "").strip()
+    m = LOGIN_RE.match(email)
+    if m:
+        return m.group(1)
+    if "@" in email:
+        local = email.split("@", 1)[0].lower().strip()
+        if local and not is_agent_credit(local):
+            return local
+    name = (name or "").strip()
+    if name and not is_agent_credit(name):
+        # Prefer single-token logins; collapse spaces for "Luna Vyqo" style poorly
+        return re.sub(r"\s+", "", name)
+    return name or "unknown"
+
+
+def first_matchers(root: Optional[pathlib.Path] = None) -> dict[str, str]:
+    """{'src/…': handle} — first git adder of each surviving src/ path (sm64ds).
+
+    Renames carry credit; delete+add starts a new lineage.
+    """
+    root = root or repo()
+    try:
+        out = subprocess.run(
+            [
+                "git",
+                "-c",
+                "diff.renameLimit=0",
+                "log",
+                "--reverse",
+                "--diff-filter=ADR",
+                "-M",
+                "--format=%x01%an%x02%ae",
+                "--name-status",
+                "--",
+                "src/",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    origin: dict[str, str] = {}
+    handle: Optional[str] = None
+    for line in out.splitlines():
+        if line.startswith("\x01"):
+            name, _, email = line[1:].partition("\x02")
+            handle = handle_from_git_identity(name, email)
+        elif handle and line and line[0] in "ADR":
+            parts = line.split("\t")
+            code = parts[0]
+            if code.startswith("A") and len(parts) >= 2:
+                origin.setdefault(parts[1].strip(), handle)
+            elif code.startswith("D") and len(parts) >= 2:
+                origin.pop(parts[1].strip(), None)
+            elif code.startswith("R") and len(parts) >= 3:
+                old, new = parts[1].strip(), parts[2].strip()
+                origin[new] = origin.pop(old, handle)
+    return origin
+
+
+def git_config_handle(root: Optional[pathlib.Path] = None) -> Optional[str]:
+    """Current repo git user (for brand-new files not yet committed)."""
+    root = root or repo()
+    try:
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        name = subprocess.run(
+            ["git", "config", "user.name"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        return None
+    if not email and not name:
+        return None
+    h = handle_from_git_identity(name, email)
+    return None if is_agent_credit(h) else h
+
+
+def attribution_overrides(root: Optional[pathlib.Path] = None) -> dict[str, str]:
+    """Optional attribution.json overrides: {"overrides": {"src/x.c": "login"}}."""
+    root = root or repo()
+    p = root / "attribution.json"
+    if not p.is_file():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        ov = data.get("overrides", {}) if isinstance(data, dict) else {}
+        return {
+            k: v
+            for k, v in ov.items()
+            if isinstance(k, str)
+            and k.startswith("src/")
+            and isinstance(v, str)
+            and v
+            and not is_agent_credit(v)
+        }
+    except Exception:
+        return {}
+
+
+def resolve_credit_author(
+    src_path: Optional[str] = None,
+    *,
+    explicit: Optional[str] = None,
+    root: Optional[pathlib.Path] = None,
+    first: Optional[dict[str, str]] = None,
+) -> Optional[str]:
+    """Resolve classic credit (GitHub login) like sm64ds.
+
+    Priority:
+      1. attribution.json overrides for src_path
+      2. explicit CLI --author only if it is not an agent name
+      3. git first-adder of src_path (surviving match lineage)
+      4. git config user (new / uncommitted promote)
+    Never returns agent/harness product names (e.g. grok).
+    """
+    root = root or repo()
+    overrides = attribution_overrides(root)
+    if src_path:
+        sp = src_path.lstrip("./")
+        if sp in overrides:
+            return overrides[sp]
+    if explicit and str(explicit).strip() and not is_agent_credit(explicit):
+        return str(explicit).strip()
+    if explicit and is_agent_credit(explicit):
+        # fall through — do not credit "grok"
+        pass
+    if src_path:
+        sp = src_path.lstrip("./")
+        fm = first if first is not None else first_matchers(root)
+        if sp in fm and not is_agent_credit(fm[sp]):
+            return fm[sp]
+    cfg = git_config_handle(root)
+    if cfg:
+        return cfg
+    return None
 
 def is_repo_root(path: pathlib.Path) -> bool:
     """True if path looks like electroplankton-decomp (or sibling layout)."""
@@ -279,10 +484,15 @@ def load_ledger(path: Optional[pathlib.Path] = None) -> dict[str, dict]:
         prov = row.get("matchProvenance") or row.get("provenance")
         if prov is None:
             raise ProvenanceError(f"{path}:{line_no}: missing matchProvenance")
-        # Credit: row.author, or migrate legacy matchProvenance.by → author.
+        # Credit: row.author only if human; never promote agent names from
+        # legacy matchProvenance.by (that was wrongly filled with "grok" etc.).
         author = row.get("author")
+        if author and is_agent_credit(str(author)):
+            author = None
         if not author and isinstance(prov, dict) and prov.get("by"):
-            author = str(prov["by"]).strip() or None
+            by = str(prov["by"]).strip()
+            if by and not is_agent_credit(by):
+                author = by
         try:
             clean = normalize_provenance(prov)
         except ProvenanceError as e:
@@ -295,8 +505,8 @@ def load_ledger(path: Optional[pathlib.Path] = None) -> dict[str, dict]:
             "srcPath": row.get("srcPath"),
             "matchProvenance": clean,
         }
-        if author:
-            entry["author"] = author
+        if author and not is_agent_credit(str(author)):
+            entry["author"] = str(author).strip()
         by_id[str(rid)] = entry
     return by_id
 
@@ -327,11 +537,13 @@ def append_ledger_row(
 ) -> dict:
     """Validate, append one JSONL row, return the row. Raises ProvenanceError.
 
-    `author` is classic chaos-viewer credit (GitHub login). `provenance` is how only.
+    `author` is classic chaos-viewer credit (GitHub login from git, not agent).
+    `provenance` is how only — never put the operator or agent in how.by.
     """
     path = path or ledger_path()
     prov = normalize_provenance(provenance)
     rid = make_id(module, addr)
+    credit = resolve_credit_author(src_path, explicit=author)
     row: dict[str, Any] = {
         "id": rid,
         "module": module,
@@ -339,8 +551,8 @@ def append_ledger_row(
         "name": name,
         "matchProvenance": prov,
     }
-    if author and str(author).strip():
-        row["author"] = str(author).strip()
+    if credit:
+        row["author"] = credit
     if src_path:
         row["srcPath"] = src_path
     path.parent.mkdir(parents=True, exist_ok=True)

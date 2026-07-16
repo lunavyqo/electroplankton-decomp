@@ -110,13 +110,22 @@ See [notes/match-attempts.md](notes/match-attempts.md) and
 python tools/log_attempt.py --func NAME --module arm9 --addr 0x… \
   --status no_progress --kind ai \
   --model grok-4.5 --reasoning high --harness grok-build \
-  --author you --session-scope focused --batch-size 1
+  --session-scope focused --batch-size 1
+
+# bank (who = git; how = model/reasoning/harness)
+python tools/bank.py --src src/arm9/NAME.c --kind ai \
+  --model grok-4.5 --reasoning high --harness grok-build \
+  --session-scope focused --batch-size 1
 ```
+
+See [notes/proposal-logging-for-tango.md](notes/proposal-logging-for-tango.md)
+for the SM64DS-shaped design (who vs how, near-miss → atlas `div`).
 
 ## Chaos atlas (optional publish)
 
 ```bash
 python tools/chaos_db_ci.py
+# publishes matched + git author + matchProvenance + near-miss div
 # + details generation / chaos-data branch push via CI or your usual flow
 ```
 
