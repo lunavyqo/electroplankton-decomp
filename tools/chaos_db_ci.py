@@ -2,10 +2,13 @@
 """CI-safe Chaos Viewer atlas generator.
 
 Rebuilds chaos-db.json from COMMITTED data only (no ROM required):
-  universe   config/**/symbols.txt  (name, addr, size per module)
-  matched    src/<name>.c[pp] exists and is not marked // NONMATCHING
-  provenance config/match_provenance.jsonl → matchProvenance on matched funcs
-  project    tools/chaosviewer.config.json
+  universe     config/**/symbols.txt  (name, addr, size per module)
+  matched      src/<name>.c[pp] exists and is not marked // NONMATCHING
+  provenance   config/match_provenance.jsonl → matchProvenance (how) on matched
+  author       git first-adder of src/ (sm64ds-style who) — never agent names
+  near-miss    nearmiss/db.jsonl (tip C + div; sm64ds-shaped). Fallback: best
+               near_miss in config/match_attempts.jsonl, then NONMATCHING div=N.
+  project      tools/chaosviewer.config.json
 
 Usage:
   python tools/chaos_db_ci.py [--out chaos-db.json] [--repo PATH]
@@ -24,11 +27,22 @@ _TOOLS_DIR = pathlib.Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
-from match_provenance import configure, load_ledger, make_id  # noqa: E402
+from match_provenance import (  # noqa: E402
+    attribution_overrides,
+    configure,
+    first_matchers,
+    is_agent_credit,
+    load_ledger,
+    make_id,
+)
+from nearmiss_db import load_best_nearmiss as load_nearmiss_tip_db  # noqa: E402
 
 FUNC_RE = re.compile(
     r"^(\S+)\s+kind:function\((?:arm|thumb),size=0x([0-9a-fA-F]+)\).*?addr:0x([0-9a-fA-F]+)"
 )
+
+# // NONMATCHING: … (div=3)  or  // NONMATCHING div=3
+DIV_IN_HEAD_RE = re.compile(r"div\s*=\s*(\d+)", re.IGNORECASE)
 
 
 def module_label(config: pathlib.Path, sym_path: pathlib.Path) -> str | None:
@@ -39,6 +53,75 @@ def module_label(config: pathlib.Path, sym_path: pathlib.Path) -> str | None:
         return rel
     m = re.fullmatch(r"arm9/overlays/(ov\d+)", rel)
     return m.group(1) if m else None
+
+
+def load_best_nearmiss_from_attempts(repo: pathlib.Path) -> dict[str, dict]:
+    """Fallback: best near_miss per functionId from config/match_attempts.jsonl.
+
+    Metadata only (no c_source). Prefer load_best_nearmiss() which reads
+    nearmiss/db.jsonl first.
+    """
+    path = repo / "config" / "match_attempts.jsonl"
+    if not path.is_file():
+        return {}
+    best: dict[str, dict] = {}
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if not line.strip():
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("status") != "near_miss":
+            continue
+        div = r.get("divergences")
+        if div is None:
+            continue
+        try:
+            div_i = int(div)
+        except (TypeError, ValueError):
+            continue
+        fid = r.get("functionId") or r.get("id")
+        if not fid:
+            mod = r.get("module")
+            addr = r.get("addr")
+            if mod is None or addr is None:
+                continue
+            try:
+                fid = make_id(str(mod), int(addr, 0) if isinstance(addr, str) else int(addr))
+            except Exception:
+                continue
+        prev = best.get(fid)
+        if prev is None or div_i < int(prev["divergences"]):
+            best[fid] = {
+                "divergences": div_i,
+                "srcPath": r.get("srcPath"),
+                "name": r.get("name"),
+                "module": r.get("module"),
+                "addr": r.get("addr"),
+            }
+    return best
+
+
+def load_best_nearmiss(repo: pathlib.Path) -> dict[str, dict]:
+    """Primary: nearmiss/db.jsonl tips (with c_source). Fill gaps from attempts."""
+    tips = load_nearmiss_tip_db(repo)
+    attempts = load_best_nearmiss_from_attempts(repo)
+    # Tips overwrite attempts on the same functionId (include c_source).
+    out = dict(attempts)
+    out.update(tips)
+    return out
+
+
+
+
+def parse_div_from_src_head(text: str) -> int | None:
+    """Parse div=N from the first lines of a NONMATCHING / scratch file."""
+    head = "\n".join(text.splitlines()[:12])
+    m = DIV_IN_HEAD_RE.search(head)
+    if not m:
+        return None
+    return int(m.group(1))
 
 
 def main() -> None:
@@ -74,9 +157,18 @@ def main() -> None:
         print(f"ERROR: provenance ledger: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # SM64DS: nearmiss/db.jsonl → div (+ tip C for details). Fallback: attempts.
+    nearmiss = load_best_nearmiss(repo)
+    nm_from_file = (repo / "nearmiss" / "db.jsonl").is_file()
+    # SM64DS: git first-adder → author. Ledger author only if human (not "grok").
+    git_authors = first_matchers(repo)
+    overrides = attribution_overrides(repo)
+
+
     functions = []
     total_b = matched_b = matched_n = 0
     missing_prov: list[str] = []
+    with_div = 0
     for sym in sorted(config.rglob("symbols.txt")):
         label = module_label(config, sym)
         if label is None:
@@ -97,8 +189,9 @@ def main() -> None:
                     src_path = hits[0].relative_to(repo).as_posix()
                     break
             matched = False
+            head = ""
             if src_path:
-                head = (repo / src_path).read_text(errors="ignore")[:200]
+                head = (repo / src_path).read_text(errors="ignore")[:400]
                 matched = "NONMATCHING" not in head
             total_b += size
             fid = make_id(label, addr)
@@ -115,15 +208,39 @@ def main() -> None:
             if matched:
                 matched_b += size
                 matched_n += 1
-                # Do not invent defaults for old matches — only copy ledger rows.
                 row = ledger.get(fid)
                 if row and row.get("matchProvenance"):
                     rec["matchProvenance"] = row["matchProvenance"]
-                    # Classic who-credit (separate from how-provenance).
-                    if row.get("author"):
-                        rec["author"] = row["author"]
                 else:
                     missing_prov.append(fid)
+                # Who = git first-adder (sm64ds), not agent/harness names from ledger.
+                who = None
+                if src_path:
+                    who = overrides.get(src_path) or git_authors.get(src_path)
+                if not who and row and row.get("author") and not is_agent_credit(
+                    str(row["author"])
+                ):
+                    who = str(row["author"]).strip()
+                if who and not is_agent_credit(who):
+                    rec["author"] = who
+            else:
+                # Near-miss badge for the viewer (same as sm64ds chaos_db_ci).
+                nm = nearmiss.get(fid)
+                div: int | None = None
+                if nm is not None:
+                    div = int(nm["divergences"])
+                    # Prefer path from the best attempt when we have no src yet.
+                    if not src_path and nm.get("srcPath"):
+                        sp = str(nm["srcPath"]).lstrip("./")
+                        if (repo / sp).is_file():
+                            rec["srcPath"] = sp
+                            src_path = sp
+                            head = (repo / sp).read_text(errors="ignore")[:400]
+                if div is None and head:
+                    div = parse_div_from_src_head(head)
+                if div is not None:
+                    rec["div"] = div
+                    with_div += 1
             functions.append(rec)
 
     project = None
@@ -141,6 +258,7 @@ def main() -> None:
             "matchedBytes": matched_b,
             "moduleCount": len({f["module"] for f in functions}),
             "withProvenance": sum(1 for f in functions if f.get("matchProvenance")),
+            "withNearMissDiv": with_div,
         },
         "functions": functions,
     }
@@ -152,8 +270,12 @@ def main() -> None:
         f"wrote {out} ({out.stat().st_size // 1024} KB): "
         f"{matched_n}/{len(functions)} funcs, {matched_b}/{total_b} bytes, "
         f"{db['stats']['moduleCount']} modules, "
-        f"{db['stats']['withProvenance']} with matchProvenance"
+        f"{db['stats']['withProvenance']} with matchProvenance, "
+        f"{with_div} with near-miss div "
+        f"(from {len(nearmiss)} tips"
+        f"{'; nearmiss/db.jsonl' if nm_from_file else '; attempts fallback'})"
     )
+
 
     if args.warn_missing_provenance and missing_prov:
         print(

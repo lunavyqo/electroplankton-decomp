@@ -10,9 +10,15 @@ machine only.
 
 ## Progress
 
-Atlas is regenerated on the `chaos-data` branch (CI / `tools/chaos_db_ci.py`).
-Rough scale: **~1,950** arm9 functions, early matching in progress — see the live
-viewer for current numbers.
+<!-- progress:start -->
+Functions  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6.2%   121 / 1,950
+Code size  █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6.2%   22,204 / 359,462 bytes
+<!-- progress:end -->
+
+Atlas is regenerated on the `chaos-data` branch by GitHub Actions
+(`.github/workflows/update-chaos-data.yml` — same idea as sm64ds-decomp: committed
+`src/` + `nearmiss/db.jsonl` → `chaos-db.json`, no ROM). See the live viewer for
+the map.
 
 Live atlas (Chaos Viewer): paste the repo URL, or open with data preloaded:
 
@@ -65,11 +71,13 @@ differ.
 ```
 src/        # Hand-written, verified matching C (promote only after match)
 tools/      # Project scripts (mwccarm/ is gitignored — local symlink/copy)
-config/     # dsd analysis: symbols, relocs, delinks (committed)
+config/     # dsd analysis + attempt/provenance logs (committed)
+nearmiss/   # Best near-miss tip C per function (committed; sm64ds-shaped)
 notes/      # Setup, compiler pin notes, legal
 docs/       # Longer documentation
 files/      # LOCAL ONLY — NitroFS extract (gitignored)
 arm7/ arm9/ # LOCAL ONLY — binaries gitignored; small yaml may be tracked
+ghidra_out/ # LOCAL ONLY — decompiler scaffolds (gitignored)
 ```
 
 ## What "matching" means
@@ -83,9 +91,20 @@ only after a relocation-aware byte check against your local dump
 disassembly is the oracle. See [notes/matching-style.md](notes/matching-style.md)
 and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Experimental logging:** every try (including dead ends) is recorded as an
-attempt-tree node in `config/match_attempts.jsonl`
-([notes/match-attempts.md](notes/match-attempts.md)).
+**Logging (sm64ds-shaped + experimental):**
+
+| Store | Keeps |
+|-------|--------|
+| `nearmiss/db.jsonl` | **Best tip C** + `div` ([notes/nearmiss.md](notes/nearmiss.md)) |
+| `config/match_attempts.jsonl` | **Every try** (metadata / attempt tree) |
+| `config/match_provenance.jsonl` | Final **how** on bank only |
+
+Log near-misses with `--src` so tip C is saved:
+
+```bash
+python tools/log_attempt.py --func … --status near_miss --divergences N \
+  --src path/to/draft.c --session-scope focused --batch-size 1 …
+```
 
 ## Setup (short)
 
@@ -99,6 +118,31 @@ attempt-tree node in `config/match_attempts.jsonl`
    ```
    dsd init -r config.yaml -o config -b build
    ```
+7. **Optional but recommended — local Ghidra scaffolds** (not in git; every
+   machine dumps its own `ghidra_out/` from the **unpacked** `arm9/arm9.bin`):
+
+   ```bash
+   # A) One-time: import arm9.bin into Ghidra (GUI is fine)
+   #    Binary: arm9/arm9.bin
+   #    Language: ARM:LE:32:v5t
+   #    Base address: 0x02000000
+   #    Save project under ghidra_projects/ep-arm9  (gitignored)
+
+   # B) Build the address list from committed symbols (gitignored output):
+   python tools/ghidra_targets.py
+
+   # C) Headless decompile → ghidra_out/0x….c  (gitignored; never commit)
+   #    Set GHIDRA_HOME to your Ghidra install, or put analyzeHeadless on PATH.
+   analyzeHeadless \
+     ghidra_projects ep-arm9 \
+     -process arm9.bin \
+     -scriptPath tools/ghidra \
+     -postScript DecompDump.java ghidra_targets.txt ghidra_out
+   ```
+
+   Scaffolds are approximate decompiler C for local matching / chaos prompts —
+   rewrite until `match.py` MATCH. Details and a Discord paste:
+   [notes/ghidra-scaffolds.md](notes/ghidra-scaffolds.md).
 
 ## Compiler status
 

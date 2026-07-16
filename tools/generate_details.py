@@ -4,6 +4,11 @@
 Produces annotated disassembly TEXT only (no binary blobs). Requires a local
 unpack (arm9/arm9.bin etc.). Output is safe to publish on chaos-data.
 
+Also attaches near-miss draft C when available (same role as sm64ds generate-chaos-db
+draft fields): tip from nearmiss/db.jsonl (c_source) → draft + draftDiv; fallback
+to attempt srcPath on disk.
+
+
 Usage:
   python tools/generate_details.py --out-dir /tmp/chaos-details
 """
@@ -19,6 +24,12 @@ from capstone import CS_ARCH_ARM, CS_MODE_ARM, CS_MODE_THUMB, Cs
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = REPO / "config"
+_TOOLS_DIR = pathlib.Path(__file__).resolve().parent
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
+
+from chaos_db_ci import load_best_nearmiss  # noqa: E402
+from match_provenance import make_id  # noqa: E402
 
 FUNC_RE = re.compile(
     r"^(\S+)\s+kind:function\((arm|thumb),size=0x([0-9a-fA-F]+)\).*?addr:0x([0-9a-fA-F]+)"
@@ -55,6 +66,10 @@ def main() -> None:
     args = ap.parse_args()
     out_dir = pathlib.Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Best near-miss tips (functionId → divergences + c_source and/or srcPath)
+    nearmiss = load_best_nearmiss(REPO)
+
 
     # group functions by module label
     by_mod: dict[str, list[tuple[str, str, int, int]]] = {}
@@ -111,11 +126,25 @@ def main() -> None:
                                     callees.append(cname)
                             except ValueError:
                                 pass
-            details[name] = {
+            rec: dict = {
                 "callees": callees[:32],
                 "calledBy": [],  # filled in second pass
                 "disasm": lines,
             }
+            # Attach near-miss draft C: prefer committed tip c_source (sm64ds-style).
+            fid = make_id(label, addr)
+            nm = nearmiss.get(fid)
+            if nm and nm.get("divergences") is not None:
+                text = (nm.get("c_source") or "").strip()
+                if not text and nm.get("srcPath"):
+                    sp = str(nm["srcPath"]).lstrip("./")
+                    draft_path = REPO / sp
+                    if draft_path.is_file():
+                        text = draft_path.read_text(errors="ignore").strip()
+                if text:
+                    rec["draft"] = text
+                    rec["draftDiv"] = int(nm["divergences"])
+            details[name] = rec
         # calledBy reverse edges
         for name, rec in details.items():
             for c in rec["callees"]:
@@ -127,7 +156,11 @@ def main() -> None:
 
         out = out_dir / f"{label}.json"
         out.write_text(json.dumps(details), encoding="utf-8")
-        print(f"wrote {out} ({len(details)} funcs, skipped_large={skipped}, {out.stat().st_size // 1024} KB)")
+        n_draft = sum(1 for r in details.values() if r.get("draft"))
+        print(
+            f"wrote {out} ({len(details)} funcs, drafts={n_draft}, "
+            f"skipped_large={skipped}, {out.stat().st_size // 1024} KB)"
+        )
 
 
 if __name__ == "__main__":

@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
-"""Print decomp progress from committed symbols + src/."""
+"""Print / write decomp progress from committed symbols + src/, or from chaos-db.json.
+
+Same role as sm64ds-decomp tools/progress.py (minus treemap):
+  python tools/progress.py
+  python tools/progress.py --bar
+  python tools/progress.py --write-readme --from-db path/to/chaos-db.json
+"""
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import re
+import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 CONFIG = REPO / "config"
 SRC = REPO / "src"
+README = REPO / "README.md"
+
+README_START = "<!-- progress:start -->"
+README_END = "<!-- progress:end -->"
 
 FUNC_RE = re.compile(
     r"^(\S+)\s+kind:function\((?:arm|thumb),size=0x([0-9a-fA-F]+)\).*?addr:0x([0-9a-fA-F]+)"
@@ -23,11 +35,12 @@ def module_label(sym_path: pathlib.Path):
     return m.group(1) if m else None
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--bar", action="store_true")
-    args = ap.parse_args()
+def bar(p: float, width: int = 30) -> str:
+    filled = int(width * p / 100)
+    return "█" * filled + "░" * (width - filled)
 
+
+def scan_src() -> tuple[int, int, int, int]:
     total_n = matched_n = total_b = matched_b = 0
     for sym in sorted(CONFIG.rglob("symbols.txt")):
         if module_label(sym) is None:
@@ -52,23 +65,98 @@ def main() -> None:
             if found is not None and "NONMATCHING" not in found.read_text(errors="ignore")[:200]:
                 matched_n += 1
                 matched_b += size
+    return matched_n, total_n, matched_b, total_b
 
-    pf = 100.0 * matched_n / total_n if total_n else 0.0
-    pb = 100.0 * matched_b / total_b if total_b else 0.0
 
-    def bar(p: float, width: int = 30) -> str:
-        filled = int(width * p / 100)
-        return "█" * filled + "░" * (width - filled)
+def from_db(path: pathlib.Path) -> tuple[int, int, int, int]:
+    """Read counts from chaos-db.json so README and atlas share one number."""
+    db = json.loads(path.read_text(encoding="utf-8"))
+    fns = db["functions"] if isinstance(db, dict) else db
+    st = db.get("stats", {}) if isinstance(db, dict) else {}
+    n = int(st.get("totalFunctions") or len(fns))
+    done_n = st.get("matchedFunctions")
+    if done_n is None:
+        done_n = sum(1 for f in fns if f.get("matched"))
+    tb = int(st.get("totalBytes") or sum(int(f.get("size", 0)) for f in fns))
+    done_b = st.get("matchedBytes")
+    if done_b is None:
+        done_b = sum(int(f.get("size", 0)) for f in fns if f.get("matched"))
+    return int(done_n), n, int(done_b), tb
 
-    block = (
-        f"Functions  {bar(pf)}  {pf:5.1f}%   {matched_n:,} / {total_n:,}\n"
-        f"Code size  {bar(pb)}  {pb:5.1f}%   {matched_b:,} / {total_b:,} bytes"
+
+def bar_block(done_n: int, n: int, done_b: int, tb: int) -> str:
+    pf = 100.0 * done_n / n if n else 0.0
+    pb = 100.0 * done_b / tb if tb else 0.0
+    return (
+        f"Functions  {bar(pf)}  {pf:5.1f}%   {done_n:,} / {n:,}\n"
+        f"Code size  {bar(pb)}  {pb:5.1f}%   {done_b:,} / {tb:,} bytes"
     )
+
+
+def write_readme(done_n: int, n: int, done_b: int, tb: int) -> bool:
+    """Replace the text between the progress markers in README.md in place."""
+    text = README.read_text(encoding="utf-8")
+    if README_START not in text or README_END not in text:
+        print(
+            f"WARN: README.md missing {README_START!r} / {README_END!r} markers; skip",
+            file=sys.stderr,
+        )
+        return False
+    start = text.index(README_START) + len(README_START)
+    end = text.index(README_END)
+    new_text = text[:start] + "\n" + bar_block(done_n, n, done_b, tb) + "\n" + text[end:]
+    if new_text != text:
+        README.write_text(new_text, encoding="utf-8")
+        return True
+    return False
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--bar", action="store_true", help="Print progress bars only")
+    ap.add_argument(
+        "--write-readme",
+        action="store_true",
+        help=f"Rewrite block between {README_START} and {README_END} in README.md",
+    )
+    ap.add_argument(
+        "--from-db",
+        type=pathlib.Path,
+        default=None,
+        help="Use chaos-db.json counts (same numbers as the viewer atlas)",
+    )
+    args = ap.parse_args()
+
+    if args.from_db is not None:
+        if not args.from_db.is_file():
+            print(f"ERROR: --from-db not found: {args.from_db}", file=sys.stderr)
+            sys.exit(1)
+        done_n, n, done_b, tb = from_db(args.from_db)
+    else:
+        root_db = REPO / "chaos-db.json"
+        if root_db.is_file():
+            done_n, n, done_b, tb = from_db(root_db)
+        else:
+            done_n, n, done_b, tb = scan_src()
+
+    if args.write_readme:
+        changed = write_readme(done_n, n, done_b, tb)
+        print(f"README.md {'updated' if changed else 'already up to date'}")
+        return
+
+    block = bar_block(done_n, n, done_b, tb)
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except Exception:
+        pass
     if args.bar:
         print(block)
     else:
         print(block)
-        print(f"modules from config/: {sum(1 for s in CONFIG.rglob('symbols.txt') if module_label(s))}")
+        print(
+            f"modules from config/: "
+            f"{sum(1 for s in CONFIG.rglob('symbols.txt') if module_label(s))}"
+        )
 
 
 if __name__ == "__main__":

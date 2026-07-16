@@ -40,6 +40,29 @@ pip install ndspy capstone pyelftools
 #   dsd init -r config.yaml -o config -b build   # if re-analysing
 ```
 
+### Local Ghidra scaffolds (recommended)
+
+Decompiler C is **per machine**, built from **your** unpacked `arm9/arm9.bin`.
+Do **not** commit `ghidra_out/`, `ghidra_projects/`, or `ghidra_targets.txt`.
+
+```bash
+# 1) One-time Ghidra project: import arm9/arm9.bin
+#    Language ARM:LE:32:v5t, base 0x02000000 → ghidra_projects/ep-arm9
+
+# 2) Target list from committed symbols (local file only):
+python tools/ghidra_targets.py
+
+# 3) Dump C scaffolds (after analyzeHeadless is on PATH / GHIDRA_HOME set):
+analyzeHeadless \
+  ghidra_projects ep-arm9 \
+  -process arm9.bin \
+  -scriptPath tools/ghidra \
+  -postScript DecompDump.java ghidra_targets.txt ghidra_out
+```
+
+Full notes + Discord blurb: [notes/ghidra-scaffolds.md](notes/ghidra-scaffolds.md).
+README setup step 7 has the same command.
+
 Before every commit:
 
 ```bash
@@ -70,7 +93,10 @@ Pinned compiler: **mwccarm `1.2/sp2p3`** with flags:
    Iterate until the verify command reports a **MATCH**.
 5. **Near-miss:** keep the best compiling draft with  
    `// NONMATCHING: … (div=N)`  
-   and log the try (below). Do not replace it with an asm dump.
+   and log the try with `--src` so tip **C** lands in `nearmiss/db.jsonl`
+   ([notes/nearmiss.md](notes/nearmiss.md)). **Commit `nearmiss/db.jsonl`** in the
+   PR (same as sm64ds-decomp) so CI can put `div` on the public atlas. Do not
+   replace a near-miss with an asm dump.
 6. **Bank** a true match (experimental provenance required):
    ```bash
    python tools/bank.py --src src/arm9/….c --kind ai|human --author YOUR_GITHUB \
@@ -79,6 +105,19 @@ Pinned compiler: **mwccarm `1.2/sp2p3`** with flags:
    ```
 7. **PR** one function or a small related family; note compiler version and
    address in the PR body.
+
+### Chaos Viewer atlas (after merge to `main`)
+
+There is **no** PR CI that recompiles matches (mwccarm/ROM stay local). After
+merge, **`update-chaos-data`** (sm64ds-style) runs on Ubuntu and:
+
+1. Rebuilds `chaos-db.json` from committed `src/` + `config/` + `nearmiss/db.jsonl`
+2. Pushes it to the **`chaos-data`** branch (viewer downloads this file)
+3. Updates the README progress bar + `contributions.json` on `main`
+
+Open the viewer with:
+
+`?data=https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json`
 
 ### Easy pickings: near-miss drafts
 
@@ -110,13 +149,22 @@ See [notes/match-attempts.md](notes/match-attempts.md) and
 python tools/log_attempt.py --func NAME --module arm9 --addr 0x… \
   --status no_progress --kind ai \
   --model grok-4.5 --reasoning high --harness grok-build \
-  --author you --session-scope focused --batch-size 1
+  --session-scope focused --batch-size 1
+
+# bank (who = git; how = model/reasoning/harness)
+python tools/bank.py --src src/arm9/NAME.c --kind ai \
+  --model grok-4.5 --reasoning high --harness grok-build \
+  --session-scope focused --batch-size 1
 ```
+
+See [notes/proposal-logging-for-tango.md](notes/proposal-logging-for-tango.md)
+for the SM64DS-shaped design (who vs how, near-miss → atlas `div`).
 
 ## Chaos atlas (optional publish)
 
 ```bash
 python tools/chaos_db_ci.py
+# publishes matched + git author + matchProvenance + near-miss div
 # + details generation / chaos-data branch push via CI or your usual flow
 ```
 

@@ -13,8 +13,8 @@ This is separate from:
 | Store | Keeps |
 |-------|--------|
 | `config/match_provenance.jsonl` | Final **how** when banked (+ `author` who) |
-| Near-miss best draft (if any) | Closest **C** candidate only |
-| **`config/match_attempts.jsonl`** | **All tries** (attempt tree) |
+| **`nearmiss/db.jsonl`** | Closest **C** tip only (`c_source` + `div`) — [nearmiss.md](nearmiss.md) |
+| **`config/match_attempts.jsonl`** | **All tries** (attempt tree metadata; no full C) |
 
 ## Attempt tree (not a flat diary)
 
@@ -106,7 +106,9 @@ Rules:
 
 `improvedNearMiss` is true when `divergences < prevBestDivergences` (or set explicitly).
 
-**Do not** put full C sources in the log (size). Use `srcPath` to a scratch file.
+**Do not** put full C sources in the attempt log (size). Use `srcPath` to a
+scratch file, and for a scored near-miss pass `--src` so
+`log_attempt.py` also upserts tip C into **`nearmiss/db.jsonl`**.
 
 **Do not** log pure asm as a successful path — deliverable is C through mwccarm
 ([matching-style.md](matching-style.md)).
@@ -122,9 +124,10 @@ python tools/log_attempt.py \
   --author lunavyqo --session-scope batch --batch-size 8 \
   --parent-attempt-id <prior> --note "no change"
 
-# Focused near-miss that did not beat best
+# Focused near-miss (pass --src so tip C is stored in nearmiss/db.jsonl)
 python tools/log_attempt.py --func func_02001a64 \
   --status near_miss --divergences 6 --prev-best 4 \
+  --src scratch/func_02001a64.c \
   --kind ai --model grok-4.5 --reasoning high --harness grok-build \
   --session-scope focused --batch-size 1 --stats
 

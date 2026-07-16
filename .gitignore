@@ -34,8 +34,9 @@ build-*/
 out/
 output/
 # dsd delink/build products and local chaos regen
+# chaos-db.json is published on the chaos-data branch only (not main).
+# contributions.json is committed on main by update-chaos-data CI (sm64ds-style).
 /chaos-db.json
-/contributions.json
 /details/
 *.elf
 *.map
@@ -156,8 +157,8 @@ mwccarm.zip
 license.dat
 
 # --- Local atlas regen (published on chaos-data branch only) ---
+# contributions.json is maintained on main by CI (not local-only).
 /chaos-db.json
-/contributions.json
 /details/
 /build/
 
