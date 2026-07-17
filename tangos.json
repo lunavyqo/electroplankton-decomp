@@ -1,0 +1,274 @@
+{
+  "tangosVersion": "1",
+  "project": {
+    "name": "electroplankton-decomp",
+    "title": "Electroplankton",
+    "tagline": "matching C from the chaos \u2014 Electroplankton",
+    "github": "https://github.com/lunavyqo/electroplankton-decomp",
+    "language": "C",
+    "platform": "nds",
+    "compiler": "mwccarm 1.2/sp2p3. Flags (C): -O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc",
+    "cppNote": "If a name starts with _Z (C++ mangled), write C++ with the FIRST LINE exactly //cpp",
+    "setup": "clone {github} and follow CONTRIBUTING.md (python deps + mwccarm under tools/mwccarm/ gitignored + unpack YOUR OWN cartridge dump with dsd / tools/unpack.py). Optional: ./tools/setup_vendor.sh for decomp-permuter + m2c. Never commit the ROM or extracts.",
+    "verifyCommand": "python tools/match.py --c yourfile.c --func {name} --addr 0x{addrHex} --size 0x{sizeHex} --version 1.2/sp2p3",
+    "readFirst": "notes/matching-style.md (C not asm; matching loop). notes/mwccarm-codegen.md (esp. sec 6e-6g levers: u64-mask laundering for materialized bases, declaration/statement order for register coloring, //cpp dummy-vtable dispatch, struct-copy interleave) and notes/pret-idioms.md \u2014 same spine as sm64ds-decomp. notes/compiler.md (1.2/sp2p3 pin + flags). notes/nearmiss.md (best tip C in nearmiss/db.jsonl). notes/match-attempts.md + notes/match-provenance.md (experimental attempt tree + how-record). notes/link-verification.md (linkcheck / wrong-callee trap). notes/ghidra-scaffolds.md (local decompiler dumps). tools/permuter/README.md when near-miss is coloring/ordering-blocked. CONTRIBUTING.md, notes/legal.md. Coordinate via CLAIMS.md. Iteration oracles: tools/fdiff.py (per-insn), tools/disasm.py / tools/abrow.py (full annotated listing when prompt truncates).",
+    "rules": "only your own legally dumped ROM; never commit the ROM, its assets, or extracted binaries \u2014 the one deliberate exception is the annotated disassembly TEXT of still-unmatched functions on the chaos-data branch (text, not bytes/assets), same practice as decomp repos committing .s files; import symbol/struct knowledge (see CREDITS.md) but write all C from scratch; deliverable is C/C++ that goes through mwccarm then tools/match.py \u2014 never submit straight assembly as a match; target disassembly is the oracle to match, not source to paste. After MATCH, stamp provenance with tools/bank.py (EP experimental); near-miss tips go to nearmiss/db.jsonl via tools/log_attempt.py --src (or nearmiss_db), not into src/ as fake matches. For call-heavy functions prefer tools/linkcheck.py / match --strict-relocs before PR (byte match wildcards reloc slots).",
+    "nearMissNote": "If a function will not fully match after real effort, do not discard your best attempt \u2014 it is still valuable. Keep compiling C and log with tools/log_attempt.py --status near_miss --divergences N --src yourfile.c so the tip is upserted into nearmiss/db.jsonl (full C of the closest draft, sm64ds-shaped). Also record every try (including no_progress) in config/match_attempts.jsonl with functionId + unique attemptId + parentAttemptId. Iterate the tip with tools/fdiff.py; if the gap is regalloc/ordering only, tools/permuter/crunch.py or import_func + vendor/decomp-permuter can finish for free. Prefer PR'ing near-miss C over abandoning to asm. // NONMATCHING: <what differs> (div=N) still marks parked src drafts. Status: near_miss only when the tip improves (set divergences); if the score does not beat best tip use no_progress (not near_miss with the same div). matched only after tools/match.py reports MATCH. Never log wall-clock times (no loggedAt/ts). bank.py is not a new try.",
+    "submitting": "Before opening a PR read CONTRIBUTING.md. Every file in src/ must byte-match (local tools/match.py MATCH). Near-misses go to nearmiss/db.jsonl, not src/. Stamp provenance with tools/bank.py. Coordinate via CLAIMS.md.",
+    "matchConventions": {
+      "attemptTree": true,
+      "attemptsPath": "config/match_attempts.jsonl",
+      "provenancePath": "config/match_provenance.jsonl",
+      "nearMissDb": "nearmiss/db.jsonl",
+      "ghidraDrafts": true,
+      "defaultProvenance": {
+        "model": "grok-4.5",
+        "reasoning": "high",
+        "harness": "grok-build"
+      }
+    }
+  },
+  "runtime": {
+    "cwd": ".",
+    "python": "python3",
+    "shell": false,
+    "envKeys": [
+      "GITHUB_TOKEN",
+      "CLAIMS_API_KEY"
+    ]
+  },
+  "requirements": {
+    "rom": true,
+    "compiler": "mwccarm",
+    "pythonPackages": [
+      "ndspy",
+      "capstone",
+      "pyelftools"
+    ],
+    "notes": "mwccarm under tools/mwccarm/ (gitignored). Optional: ./tools/setup_vendor.sh for permuter + m2c."
+  },
+  "data": {
+    "generate": "{python} tools/chaos_db_ci.py --out {out}",
+    "dbPath": "chaos-db.json",
+    "committedDbUrl": "https://raw.githubusercontent.com/lunavyqo/electroplankton-decomp/chaos-data/chaos-db.json"
+  },
+  "categories": [
+    {
+      "id": "reporting",
+      "label": "Progress & Reporting",
+      "order": 1
+    },
+    {
+      "id": "analysis",
+      "label": "Analysis & Debugging",
+      "order": 2
+    },
+    {
+      "id": "setup",
+      "label": "Setup & Build",
+      "order": 3
+    },
+    {
+      "id": "logging",
+      "label": "Match logging",
+      "order": 4
+    }
+  ],
+  "tools": [
+    {
+      "id": "progress",
+      "label": "Progress report",
+      "category": "reporting",
+      "readOnly": true,
+      "description": "Report decomp progress.",
+      "command": "{python} tools/progress.py {flags}"
+    },
+    {
+      "id": "match",
+      "label": "Match function",
+      "category": "analysis",
+      "readOnly": true,
+      "description": "Compile candidate C with mwccarm and compare to the ROM (relocation-aware).",
+      "args": [
+        {
+          "name": "c",
+          "type": "string",
+          "flag": "--c",
+          "required": true,
+          "description": "Candidate C/C++ path."
+        },
+        {
+          "name": "func",
+          "type": "string",
+          "flag": "--func",
+          "required": true,
+          "description": "Function symbol name."
+        },
+        {
+          "name": "addr",
+          "type": "string",
+          "flag": "--addr",
+          "required": true,
+          "description": "Address (0x\u2026)."
+        },
+        {
+          "name": "size",
+          "type": "string",
+          "flag": "--size",
+          "required": true,
+          "description": "Size (0x\u2026)."
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "flag": "--version",
+          "description": "mwccarm version (e.g. 1.2/sp2p3)."
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "flag": "--module",
+          "description": "Module label (arm9, ov002, \u2026)."
+        },
+        {
+          "name": "brief",
+          "type": "boolean",
+          "flag": "--brief",
+          "description": "Terse pass/fail output."
+        }
+      ],
+      "command": "{python} tools/match.py {flags}"
+    },
+    {
+      "id": "fdiff",
+      "label": "Function diff",
+      "category": "analysis",
+      "readOnly": true,
+      "description": "Per-instruction byte diff (reloc-aware) for one hard function.",
+      "args": [
+        {
+          "name": "c",
+          "type": "string",
+          "flag": "--c",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "flag": "--name",
+          "required": true
+        },
+        {
+          "name": "addr",
+          "type": "string",
+          "flag": "--addr"
+        },
+        {
+          "name": "size",
+          "type": "string",
+          "flag": "--size"
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "flag": "--module"
+        },
+        {
+          "name": "quiet",
+          "type": "boolean",
+          "flag": "--quiet"
+        }
+      ],
+      "command": "{python} tools/fdiff.py {flags}"
+    },
+    {
+      "id": "disasm",
+      "label": "Disassemble",
+      "category": "analysis",
+      "readOnly": true,
+      "description": "Disassemble a ROM range.",
+      "command": "{python} tools/disasm.py {flags}"
+    },
+    {
+      "id": "worklist",
+      "label": "Worklist",
+      "category": "analysis",
+      "readOnly": true,
+      "description": "Emit unmatched functions with resolved context.",
+      "command": "{python} tools/worklist.py {flags}"
+    },
+    {
+      "id": "linkcheck",
+      "label": "Linkcheck",
+      "category": "analysis",
+      "readOnly": true,
+      "description": "Linked-byte verification (wrong-callee trap).",
+      "command": "{python} tools/linkcheck.py {flags}"
+    },
+    {
+      "id": "nearmiss_list",
+      "label": "Near-miss list",
+      "category": "reporting",
+      "readOnly": true,
+      "description": "List best near-miss tips (nearmiss/db.jsonl).",
+      "command": "{python} tools/nearmiss_db.py list {flags}"
+    },
+    {
+      "id": "log_attempt",
+      "label": "Log attempt",
+      "category": "logging",
+      "readOnly": false,
+      "description": "Append one matching attempt (attempt tree node) to config/match_attempts.jsonl.",
+      "command": "{python} tools/log_attempt.py {flags}"
+    },
+    {
+      "id": "bank",
+      "label": "Bank match",
+      "category": "logging",
+      "readOnly": false,
+      "description": "Bank a verified match (provenance required for AI).",
+      "command": "{python} tools/bank.py {flags}"
+    },
+    {
+      "id": "chaos_db",
+      "label": "Chaos DB",
+      "category": "reporting",
+      "readOnly": true,
+      "description": "Generate chaos-db.json from committed data (no ROM).",
+      "command": "{python} tools/chaos_db_ci.py --out {out}"
+    },
+    {
+      "id": "unpack",
+      "label": "Unpack ROM",
+      "category": "setup",
+      "readOnly": false,
+      "description": "Unpack a legally owned .nds dump (local only).",
+      "command": "{python} tools/unpack.py {flags}"
+    },
+    {
+      "id": "nearmiss_stats",
+      "label": "Near-miss stats",
+      "category": "reporting",
+      "readOnly": true,
+      "command": "{python} tools/nearmiss_db.py stats",
+      "description": "Summarize the near-miss tip store."
+    },
+    {
+      "id": "agent_bank",
+      "label": "Agent bank",
+      "category": "logging",
+      "readOnly": false,
+      "description": "Verify-and-bank agent batch results (not provenance bank.py).",
+      "command": "{python} tools/agent_bank.py {flags}"
+    },
+    {
+      "id": "swarm",
+      "label": "Swarm templates",
+      "category": "analysis",
+      "readOnly": false,
+      "description": "Zero-token template tier (dry-run by default).",
+      "command": "{python} tools/swarm.py {flags}",
+      "apply": "--apply"
+    }
+  ]
+}
