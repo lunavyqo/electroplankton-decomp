@@ -15,8 +15,6 @@ Record (schemaVersion 1 — attempt tree):
     "id": "arm9:0x02001a64",          # alias of functionId (backward compatible)
     "attemptId": "a1b2c3…",           # UNIQUE this node (UUID hex); never reuse
     "parentAttemptId": null,          # prior attemptId you built on, or null
-    "loggedAt": "2026-07-15T12:00:00Z",
-    "ts": "…",                        # same as loggedAt (legacy key)
     "module": "arm9",
     "addr": 33561188,
     "name": "func_02001a64",
@@ -48,7 +46,6 @@ from __future__ import annotations
 import json
 import pathlib
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from match_provenance import (
@@ -85,12 +82,6 @@ SCHEMA_VERSION = 1
 
 def attempts_path() -> pathlib.Path:
     return get_repo() / "config" / "match_attempts.jsonl"
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
-    )
 
 
 def new_attempt_id() -> str:
@@ -179,8 +170,10 @@ def validate_attempt(rec: dict) -> Optional[str]:
 
 
 def normalize_attempt(rec: dict) -> dict:
-    """Clean + validate. Raises ProvenanceError."""
-    logged = rec.get("loggedAt") or rec.get("ts") or utc_now_iso()
+    """Clean + validate. Raises ProvenanceError.
+
+    Privacy: do not record wall-clock times (no loggedAt/ts).
+    """
     function_id = str(rec.get("functionId") or rec.get("id") or "").strip()
     if not function_id:
         raise ProvenanceError("functionId (or id) required")
@@ -203,14 +196,14 @@ def normalize_attempt(rec: dict) -> dict:
         "id": function_id,  # legacy alias — same as functionId
         "attemptId": attempt_id,
         "parentAttemptId": parent_attempt_id,
-        "loggedAt": logged,
-        "ts": logged,
         "module": str(rec["module"]),
         "addr": int(rec["addr"]) if rec.get("addr") is not None else None,
         "name": str(rec["name"]),
         "status": str(rec["status"]),
         "kind": str(rec["kind"]).strip().lower(),
     }
+    # Privacy: drop any wall-clock fields if a caller still sends them.
+    # (loggedAt / ts must not be persisted.)
     if out["kind"] == "ai":
         how = normalize_provenance(
             {
@@ -325,7 +318,6 @@ def append_attempt(
     parent_attempt_id: Optional[str] = None,
     base_kind: Optional[str] = None,
     base_divergences: Optional[int] = None,
-    ts: Optional[str] = None,
     path: Optional[pathlib.Path] = None,
 ) -> dict:
     """Append one attempt. Always records — including no_progress. Raises ProvenanceError."""
@@ -336,7 +328,6 @@ def append_attempt(
         "id": rid,
         "attemptId": attempt_id or new_attempt_id(),
         "parentAttemptId": parent_attempt_id,
-        "ts": ts or utc_now_iso(),
         "module": module,
         "addr": int(addr),
         "name": name,

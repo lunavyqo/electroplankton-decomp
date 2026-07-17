@@ -49,7 +49,8 @@ class AttemptNormalize(unittest.TestCase):
         self.assertIsNone(r["parentAttemptId"])
         self.assertEqual(r["base"]["kind"], "scratch")
         self.assertEqual(r["schemaVersion"], 1)
-        self.assertTrue(r["loggedAt"])
+        self.assertNotIn("loggedAt", r)
+        self.assertNotIn("ts", r)
 
     def test_batch_scope(self):
         r = normalize_attempt(

@@ -44,8 +44,6 @@ Rules:
   "id": "arm9:0x02001a64",
   "attemptId": "a1b2c3d4e5f64789a0b1c2d3e4f50617",
   "parentAttemptId": null,
-  "loggedAt": "2026-07-15T12:00:00Z",
-  "ts": "2026-07-15T12:00:00Z",
   "module": "arm9",
   "addr": 33561188,
   "name": "func_02001a64",
@@ -75,7 +73,10 @@ Rules:
 | `functionId` | Atlas `module:0xaddr` (stable). Legacy key `id` is the same value. |
 | `attemptId` | Unique id for **this** node (UUID hex). Never `a1` / `try2`. |
 | `parentAttemptId` | Prior `attemptId` you built on, or `null` |
-| `loggedAt` | ISO-8601 UTC when the try finished (`ts` mirrors it) |
+
+**Privacy:** do **not** record wall-clock times. No `loggedAt`, no `ts`, no
+UTC finish stamps. `tools/match_attempts.py` strips those fields if a caller
+still sends them.
 
 ### base.kind
 
