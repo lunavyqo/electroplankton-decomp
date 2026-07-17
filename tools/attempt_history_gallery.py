@@ -265,17 +265,28 @@ def gallery_rows() -> list[dict[str, Any]]:
 
 
 def gallery_function_record() -> dict[str, Any]:
-    """Synthetic atlas row for chaos_db_ci inject (unmatched, near-miss badge)."""
+    """Synthetic atlas row for chaos_db_ci inject.
+
+    Matches a normal banked function: tree ends in status=matched, so the
+    atlas shows MATCHED (not NEAR-MISS). History still contains earlier
+    near_miss / no_progress / failed nodes under the match leaf.
+    """
     return {
         "id": GALLERY_FUNCTION_ID,
         "module": GALLERY_MODULE,
         "name": GALLERY_NAME,
         "addr": GALLERY_ADDR,
         "size": GALLERY_SIZE,
-        "matched": False,
-        "div": 4,  # tip from gallery tree
+        "matched": True,
+        "srcPath": "src/demo/func_attempt_history_gallery.c",
         "cat": "fixture",
         "author": "lunavyqo",
+        "matchProvenance": {
+            "kind": "ai",
+            "model": "grok-4.5",
+            "reasoning": "high",
+            "harness": "grok-build",
+        },
     }
 
 
