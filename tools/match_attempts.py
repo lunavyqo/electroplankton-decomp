@@ -323,6 +323,8 @@ def append_attempt(
     parent_attempt_id: Optional[str] = None,
     base_kind: Optional[str] = None,
     base_divergences: Optional[int] = None,
+    used_near_miss_draft: Optional[bool] = None,
+    used_ghidra_draft: Optional[bool] = None,
     path: Optional[pathlib.Path] = None,
 ) -> dict:
     """Append one attempt. Always records — including no_progress. Raises ProvenanceError."""
@@ -361,6 +363,10 @@ def append_attempt(
         rec["sessionScope"] = session_scope
     if batch_size is not None:
         rec["batchSize"] = batch_size
+    if used_near_miss_draft is not None:
+        rec["usedNearMissDraft"] = bool(used_near_miss_draft)
+    if used_ghidra_draft is not None:
+        rec["usedGhidraDraft"] = bool(used_ghidra_draft)
     if base_kind:
         base: dict[str, Any] = {"kind": base_kind}
         if parent_attempt_id and base_kind == "previous_attempt":
