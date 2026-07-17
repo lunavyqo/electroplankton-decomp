@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Print / write decomp progress from committed symbols + src/, or from chaos-db.json.
 
-Same role as sm64ds-decomp tools/progress.py (minus treemap):
+Same role as sm64ds-decomp tools/progress.py (README bar; progress map is Chaos Viewer):
   python tools/progress.py
   python tools/progress.py --bar
   python tools/progress.py --write-readme --from-db path/to/chaos-db.json

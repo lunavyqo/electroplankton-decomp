@@ -93,7 +93,13 @@ these fields; operators ingest with `log_attempt.py`.
 
 ## Related
 
-- [compiler.md](compiler.md) — pin + flags + evidence  
-- [match-provenance.md](match-provenance.md) — who (`author`) vs how (`matchProvenance`)  
-- [match-attempts.md](match-attempts.md) — full attempt log schema  
-- [legal.md](legal.md) — ROM / assets never in git  
+- [compiler.md](compiler.md) — pin + flags + evidence
+- [setup-mwccarm.md](setup-mwccarm.md) — where to get mwccarm
+- [mwccarm-codegen.md](mwccarm-codegen.md) — deep codegen levers (sm64ds spine)
+- [pret-idioms.md](pret-idioms.md) — pret-style matching idioms
+- [matching-style-sm64ds.md](matching-style-sm64ds.md) — fuller SM64DS style notes
+- [link-verification.md](link-verification.md) — reloc destination checks
+- [ghidra-scaffolds.md](ghidra-scaffolds.md) — local decompiler dumps
+- [match-provenance.md](match-provenance.md) — who (`author`) vs how (`matchProvenance`)
+- [match-attempts.md](match-attempts.md) — full attempt log schema
+- [legal.md](legal.md) — ROM / assets never in git

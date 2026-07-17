@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
-"""Set up a decomp-permuter working directory for one unmatched EP function.
+"""Set up a decomp-permuter working directory for one unmatched function.
 
-Wiring of https://github.com/simonlindholm/decomp-permuter for this repo
-(same pattern as sm64ds-decomp tools/permuter/).
+Given a function (by module+addr or name), this resolves its ROM bytes, size, and the
+reloc offsets inside it, then writes a permuter dir:
 
-Given a function (by name or module+addr) and a seed C file, writes:
+    <out>/target.o          raw ROM bytes of the function (cap_objdump reads raw)
+    <out>/target.o.relocs   reloc offsets to wildcard (bl targets, pool-addr words)
+    <out>/compile.sh        -> tools/permuter/mwccarm_compile.sh (our canonical build)
+    <out>/base.c            the seed C (an LLM/m2c draft, or a near-miss to polish)
+    <out>/settings.toml     compiler_type=mwcc, func_name, objdump_command=cap_objdump
 
-    <out>/target.o          raw ROM bytes of the function
-    <out>/target.o.relocs   reloc offsets to wildcard
-    <out>/compile.sh        -> tools/permuter/mwccarm_compile.sh
-    <out>/base.c            seed C (near-miss / draft)
-    <out>/settings.toml     mwcc + cap_objdump scorer
-    <out>/cc.txt            optional direct mwccarm cmdline (faster on Windows)
-
-Then:
+Then run:
     python vendor/decomp-permuter/permuter.py <out> --stop-on-zero -j 4
 
-Score 0 = permuter thinks it matches; still verify with tools/match.py before bank.
-
 Usage:
-    python tools/permuter/import_func.py --name func_02050928 --base seed.c
-    python tools/permuter/import_func.py --module arm9 --addr 0x02050928 --base seed.c
-    python tools/permuter/import_func.py --name func_02050928 --from-nearmiss
-"""
-from __future__ import annotations
+    python tools/permuter/import_func.py --module ov002 --addr 0x020570c0 --base seed.c
+    python tools/permuter/import_func.py --name func_020570c0 --base seed.c
 
+A score of 0 means the permuter found C that compiles byte-identical to the ROM; verify
+and bank it with the normal oracle (tools/match.py / swarm.oracle_ok) before committing.
+"""
 import argparse
 import io
 import json
 import pathlib
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -37,212 +33,167 @@ import tempfile
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "tools"))
 
-from bank import load_symbol  # noqa: E402
-from match import (  # noqa: E402
-    CANONICAL,
-    DEFAULT_FLAGS,
-    MODULES,
-    compile_c,
-    extract_func,
-    target_bytes,
-)
-from nearmiss_db import load_db, key_of  # noqa: E402
+import modules as MOD
+import relocs as R
+import sweep
 
 PERM_DIR = REPO / "vendor" / "decomp-permuter"
 WRAPPER = REPO / "tools" / "permuter" / "mwccarm_compile.sh"
 CAP = REPO / "tools" / "permuter" / "cap_objdump.py"
+# Direct compile (no bash): git-bash startup is ~400ms/candidate on Windows; calling
+# mwccarm.exe directly is ~140ms (~4x). The permuter's compiler.py reads cc.txt.
 MWCC = REPO / "tools" / "mwccarm" / "1.2" / "sp2p3" / "mwccarm.exe"
 LICENSE = REPO / "tools" / "mwccarm" / "license.dat"
-CFLAGS = DEFAULT_FLAGS.split()
-ADDR_IN_NAME = re.compile(r"func_([0-9a-fA-F]{6,8})$", re.I)
+CFLAGS = "-O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc".split()
 
 
-def to_posix(p: pathlib.Path) -> str:
-    s = str(p.resolve())
+def cpp_to_c(src):
+    """Strip a `//cpp` + single `extern "C" { ... }` wrapper to plain C so the C-only
+    permuter parser (pycparser) can mutate it. The mangled names are valid C identifiers.
+    Returns None when the source is real C++ (member fns / virtuals / multiple wrappers)
+    that doesn't fit the simple pattern."""
+    if not src.startswith("//cpp"):
+        return None
+    m = re.match(r'//cpp\s*\n\s*extern\s*"C"\s*\{(.*)\}\s*$', src, re.DOTALL)
+    return (m.group(1).strip() + "\n") if m else None
+
+
+def permutable_base(src, name):
+    """Return a permuter-parseable base source. For a `//cpp` near-miss, return its
+    C-converted form ONLY when it compiles byte-IDENTICALLY (so mutating it is faithful);
+    otherwise return the original (the permuter will skip a real-C++ source as before)."""
+    if not src.startswith("//cpp"):
+        return src
+    c = cpp_to_c(src)
+    if not c:
+        return src
+    import match as M, swarm as S
+
+    def _b(s, cpp):
+        flags = S.CPP_FLAGS if cpp else M.DEFAULT_FLAGS
+        with tempfile.TemporaryDirectory() as td:
+            cf = pathlib.Path(td) / ("c.cpp" if cpp else "c.c")
+            cf.write_text(s)
+            o = M.compile_c(cf, "1.2/sp2p3", flags)
+        if o is None:
+            return None
+        code, _ = M.extract_func(o, name)
+        return code
+
+    a, b = _b(src, True), _b(c, False)
+    return c if (a is not None and a == b) else src
+
+
+def candidate_reloc_offsets(base_c_path):
+    """Compile the seed and read its .rel.text offsets -- the authoritative set of
+    reloc slots to wildcard (config relocs.txt omits data-pool relocs; the compiled
+    object is the source of truth, same as our oracle uses)."""
+    from elftools.elf.elffile import ELFFile
+    with tempfile.NamedTemporaryFile(suffix=".o", delete=False) as f:
+        obj = f.name
+    try:
+        subprocess.check_call(["bash", str(WRAPPER), str(base_c_path), "-o", obj],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with open(obj, "rb") as f:
+            elf = ELFFile(io.BytesIO(f.read()))
+            rel = elf.get_section_by_name(".rel.text") or elf.get_section_by_name(".rela.text")
+            return sorted(r["r_offset"] for r in rel.iter_relocations()) if rel else []
+    except Exception:
+        return None
+    finally:
+        try:
+            __import__("os").remove(obj)
+        except OSError:
+            pass
+
+
+def find_func(module, addr, name):
+    """Return (mod, label, name, addr, size) for the requested function."""
+    for mod in MOD.modules():
+        label = "arm9" if mod["name"] == "main" else mod["name"]
+        if module and mod["name"] != module and label != module:
+            continue
+        for fname, faddr, fsize in sweep.funcs(mod):
+            if (addr is not None and faddr == addr) or (name and fname == name):
+                return mod, label, fname, faddr, fsize
+    return None
+
+
+def to_posix(p):
+    """Absolute path in /c/... form, for the bash-run compile.sh."""
+    s = str(pathlib.Path(p).resolve())
     if len(s) > 1 and s[1] == ":":
         s = "/" + s[0].lower() + s[2:].replace("\\", "/")
     return s
 
 
-def to_win(p: pathlib.Path) -> str:
-    return str(p.resolve()).replace("\\", "/")
+def to_win(p):
+    """Absolute path in C:/... form, for objdump_command (run by native Windows
+    Python via the permuter's subprocess, which can't open /c/... posix paths)."""
+    return str(pathlib.Path(p).resolve()).replace("\\", "/")
 
 
-def resolve_func(
-    module: str | None, addr: int | None, name: str | None
-) -> tuple[str, str, int, int]:
-    """Return (module, name, addr, size)."""
-    if name:
-        info = load_symbol(name)
-        if info:
-            mod, a, size = info
-            return mod, name, a, size
-        m = ADDR_IN_NAME.search(name)
-        if m and addr is None:
-            addr = int(m.group(1), 16)
-    if addr is None:
-        raise SystemExit("need --name and/or --addr")
-    want_mod = module or "arm9"
-    config = REPO / "config"
-    FUNC_RE = re.compile(
-        r"^(\S+)\s+kind:function\((?:arm|thumb),size=0x([0-9a-fA-F]+)\).*?addr:0x([0-9a-fA-F]+)"
-    )
-    for sym in config.rglob("symbols.txt"):
-        rel = sym.parent.relative_to(config).as_posix()
-        if rel in ("arm9", "arm7"):
-            label = rel
-        else:
-            om = re.fullmatch(r"arm9/overlays/(ov\d+)", rel)
-            if not om:
-                continue
-            label = om.group(1)
-        if label != want_mod:
-            continue
-        for line in sym.read_text(errors="ignore").splitlines():
-            m = FUNC_RE.match(line)
-            if not m:
-                continue
-            n, size_h, addr_h = m.group(1), m.group(2), m.group(3)
-            a = int(addr_h, 16)
-            if a == addr or (name and n == name):
-                return label, n, a, int(size_h, 16)
-    raise SystemExit(f"function not found module={module} addr={addr} name={name}")
-
-
-def candidate_reloc_offsets(base_c: pathlib.Path, func: str) -> list[int] | None:
-    """Compile seed; return .rel.text offsets for the function (relative to func start)."""
-    obj = compile_c(base_c, CANONICAL, DEFAULT_FLAGS)
-    if obj is None:
-        return None
-    code, offs = extract_func(obj, func)
-    if code is None:
-        # whole .text relocs as absolute file offsets — use raw from ELF
-        elf = __import__("elftools.elf.elffile", fromlist=["ELFFile"]).ELFFile(
-            io.BytesIO(obj)
-        )
-        rel = elf.get_section_by_name(".rel.text") or elf.get_section_by_name(
-            ".rela.text"
-        )
-        if rel is None:
-            return []
-        return sorted(r["r_offset"] for r in rel.iter_relocations())
-    return sorted(offs)
-
-
-def seed_from_nearmiss(module: str, addr: int, name: str) -> str | None:
-    db = load_db()
-    rec = db.get(key_of(module, addr))
-    if rec and (rec.get("c_source") or "").strip():
-        return rec["c_source"]
-    # try by name
-    for r in db.values():
-        if r.get("name") == name and (r.get("c_source") or "").strip():
-            return r["c_source"]
-    return None
-
-
-def setup_dir(
-    module: str,
-    name: str,
-    addr: int,
-    size: int,
-    base_src: str,
-    out: pathlib.Path | None = None,
-) -> tuple[pathlib.Path, int]:
-    """Write permuter dir. Returns (out_path, n_relocs)."""
-    if module not in MODULES:
-        raise SystemExit(f"unknown module {module!r} (need local binary mapping)")
-    mod = MODULES[module]
-    if not mod["bin"].is_file():
-        raise SystemExit(f"missing binary {mod['bin']} — unpack ROM first")
-    tgt = target_bytes(addr, size, mod["bin"], mod["base"])
+def setup_dir(found, base_src, out=None):
+    """Write a permuter working dir for `found` (mod,label,name,addr,size) seeded with
+    the C text `base_src`. Returns (out_path, name, addr, size, n_relocs)."""
+    mod, label, name, addr, size = found
+    data = mod["bin"].read_bytes()
+    tgt = data[addr - mod["base"]:addr - mod["base"] + size]
 
     out = pathlib.Path(out) if out else (PERM_DIR / "work" / name)
     out.mkdir(parents=True, exist_ok=True)
 
     (out / "compile.sh").write_text(
-        f'#!/bin/bash\nexec "{to_posix(WRAPPER)}" "$@"\n'
-    )
+        f'#!/bin/bash\nexec "{to_posix(WRAPPER)}" "$@"\n')
     (out / "compile.sh").chmod(0o755)
-    if MWCC.is_file():
-        (out / "cc.txt").write_text(
-            json.dumps(
-                {
-                    "cmd": [to_win(MWCC), *CFLAGS, "-c"],
-                    "license": to_win(LICENSE) if LICENSE.is_file() else "",
-                }
-            )
-        )
+    # Direct-compile sidecar: the permuter's compiler.py uses this to call mwccarm.exe
+    # without spawning bash (~4x faster per candidate). Mirrors the wrapper's flags.
+    (out / "cc.txt").write_text(json.dumps(
+        {"cmd": [to_win(MWCC), *CFLAGS, "-c"], "license": to_win(LICENSE)}))
     (out / "base.c").write_text(base_src)
     (out / "target.o").write_bytes(tgt)
 
-    reloc_offs = candidate_reloc_offsets(out / "base.c", name)
+    # Reloc offsets to wildcard: prefer the seed's own .rel.text (authoritative, incl.
+    # data-pool relocs), fall back to config relocs.txt if the seed won't compile.
+    reloc_offs = candidate_reloc_offsets(out / "base.c")
     if reloc_offs is None:
-        reloc_offs = []
-    (out / "target.o.relocs").write_text(
-        "".join(f"0x{o:x}\n" for o in reloc_offs)
-    )
+        relocs = R.load_relocs_file(mod["relocs"])
+        reloc_offs = sorted(o - addr for o in relocs if addr <= o < addr + size)
+    (out / "target.o.relocs").write_text("".join(f"0x{o:x}\n" for o in reloc_offs))
 
+    # Same interpreter as this process; quote paths so spaces in the repo path
+    # (e.g. "electroplankton decomp") survive shlex.split in the permuter scorer.
+    # Bare "python" is often missing on macOS PATH.
+    objdump_cmd = f"{shlex.quote(to_win(sys.executable))} {shlex.quote(to_win(CAP))}"
     (out / "settings.toml").write_text(
         f'compiler_type = "mwcc"\n'
         f'func_name = "{name}"\n'
-        f'objdump_command = "python {to_win(CAP)}"\n'
-    )
-    return out, len(reloc_offs)
+        f'objdump_command = {json.dumps(objdump_cmd)}\n')
+    return out, name, addr, size, len(reloc_offs)
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
+def main():
+    ap = argparse.ArgumentParser()
     ap.add_argument("--module", default=None)
     ap.add_argument("--addr", type=lambda x: int(x, 0), default=None)
     ap.add_argument("--name", default=None)
-    ap.add_argument("--base", default=None, help="seed C file")
-    ap.add_argument(
-        "--from-nearmiss",
-        action="store_true",
-        help="seed from nearmiss/db.jsonl for this function",
-    )
+    ap.add_argument("--base", default=None, help="seed C file (the draft to permute)")
     ap.add_argument("--out", default=None, help="output dir (default vendor/.../work/<name>)")
     args = ap.parse_args()
     if args.addr is None and not args.name:
-        ap.error("give --name and/or --addr")
+        ap.error("give --addr (with --module) or --name")
 
-    module, name, addr, size = resolve_func(args.module, args.addr, args.name)
-    if size <= 0:
-        raise SystemExit(f"bad size for {name}")
-
-    base_src = None
-    if args.from_nearmiss:
-        base_src = seed_from_nearmiss(module, addr, name)
-        if not base_src:
-            raise SystemExit(f"no nearmiss tip for {module} {name} @ 0x{addr:08x}")
-    elif args.base:
-        base_src = pathlib.Path(args.base).read_text(encoding="utf-8", errors="ignore")
-    else:
-        base_src = (
-            f"// seed: replace with a draft of {name}\n"
-            f"void {name}(void) {{}}\n"
-        )
-
-    out, nrel = setup_dir(module, name, addr, size, base_src, args.out)
-    print(
-        f"imported {module} {name} @ 0x{addr:08x} "
-        f"(size 0x{size:x}, {nrel} relocs) -> {out}"
-    )
-    perm = PERM_DIR / "permuter.py"
-    if not perm.is_file():
-        print(
-            f"NOTE: clone decomp-permuter first:\n"
-            f"  git clone https://github.com/simonlindholm/decomp-permuter "
-            f"{to_posix(PERM_DIR)}\n"
-            f"  python -m pip install toml pcpp pycparser capstone pyelftools",
-            file=sys.stderr,
-        )
-    print(
-        f"run: python {to_posix(perm)} {to_posix(out)} --stop-on-zero -j 4"
-    )
-    print(f"verify: python tools/match.py --c {out}/best.c --func {name} "
-          f"--addr 0x{addr:x} --size 0x{size:x} --version 1.2/sp2p3")
+    found = find_func(args.module, args.addr, args.name)
+    if not found:
+        print("function not found", file=sys.stderr)
+        sys.exit(1)
+    label = found[1]
+    base_src = (pathlib.Path(args.base).read_text() if args.base
+                else f"// seed: replace with a draft of {found[2]}\nvoid {found[2]}(void) {{}}\n")
+    out, name, addr, size, nrel = setup_dir(found, base_src, args.out)
+    print(f"imported {label} {name} @ 0x{addr:08x} (size 0x{size:x}, {nrel} relocs) -> {out}")
+    print(f"run: {sys.executable} {to_posix(PERM_DIR / 'permuter.py')} "
+          f"{to_posix(out)} --stop-on-zero -j 4")
 
 
 if __name__ == "__main__":

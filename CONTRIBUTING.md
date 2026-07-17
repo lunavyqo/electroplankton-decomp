@@ -72,19 +72,34 @@ You bring your own copy of the game. Nothing copyrighted lives in this repo.
    pip install ndspy capstone pyelftools
    ```
 4. **mwccarm** (Metrowerks CodeWarrior ARM) under `tools/mwccarm/` (gitignored)
-   and **wibo** under `tools/bin/` when needed. See [notes/compiler.md](notes/compiler.md).
+   and **wibo** under `tools/bin/` when needed. See [notes/compiler.md](notes/compiler.md)
+   and [notes/setup-mwccarm.md](notes/setup-mwccarm.md).
+5. **Optional local vendors** (gitignored): decomp-permuter + m2c for free codegen
+   polish and semantic drafts:
+   ```bash
+   ./tools/setup_vendor.sh
+   # or manually:
+   #   git clone https://github.com/simonlindholm/decomp-permuter vendor/decomp-permuter
+   #   git clone https://github.com/matt-kempster/m2c vendor/m2c
+   pip install toml pcpp pycparser
+   ```
+   See [tools/permuter/README.md](tools/permuter/README.md) and
+   [notes/m2c-setup.md](notes/m2c-setup.md).
 
 ## First-time setup
 
 ```bash
 git clone https://github.com/lunavyqo/electroplankton-decomp
 cd electroplankton-decomp
-pip install ndspy capstone pyelftools
+pip install ndspy capstone pyelftools toml pcpp pycparser
 
 # Your dump (gitignored), e.g.:
 #   cp /path/to/your/Electroplankton.nds ./Electroplankton.nds
 # Unpack with dsd / tools/unpack.py, then:
 #   dsd init -r config.yaml -o config -b build   # if re-analysing
+
+# Optional: permuter + m2c engines (local only)
+./tools/setup_vendor.sh
 ```
 
 ### Local Ghidra scaffolds (recommended)
@@ -127,31 +142,67 @@ Pinned compiler: **mwccarm `1.2/sp2p3`** with flags:
 -O4,p -enum int -lang c99 -char signed -interworking -proc arm946e -gccext,on -msgstyle gcc
 ```
 
+Setup details: [notes/setup-mwccarm.md](notes/setup-mwccarm.md),
+[notes/compiler.md](notes/compiler.md). Codegen idioms:
+[notes/mwccarm-codegen.md](notes/mwccarm-codegen.md),
+[notes/pret-idioms.md](notes/pret-idioms.md).
+
 1. **Pick / claim** an unmatched function (CLAIMS.md).
 2. **Read** annotated disassembly (local tools or Chaos Viewer details). That
    listing is the **oracle**, not a source file to paste.
+   ```bash
+   python tools/disasm.py --module arm9 --addr 0x020xxxxx --size 0x..
+   ```
 3. **Write C** (scratch is fine). Prefer C that will go through mwccarm — never
    treat raw asm as the deliverable. Style notes: [notes/matching-style.md](notes/matching-style.md).
 4. **Compile + byte-diff** (relocation-aware):
    ```bash
    python tools/match.py --c yourfile.c --func NAME --addr 0x020xxxxx --size 0x.. \
      --version 1.2/sp2p3
+   # Per-instruction oracle while iterating:
+   python tools/fdiff.py --c yourfile.c --name NAME --module arm9 --addr 0x.. --size 0x..
    ```
-   Iterate until the verify command reports a **MATCH**.
-5. **Near-miss:** keep the best compiling draft with  
+   Iterate until `match.py` reports a **MATCH**.
+5. **Reloc destinations** (calls / globals): a byte match wildcards reloc slots.
+   For call-heavy functions, also run:
+   ```bash
+   python tools/linkcheck.py   # see notes/link-verification.md
+   ```
+6. **Near-miss:** keep the best compiling draft with  
    `// NONMATCHING: … (div=N)`  
    and log the try with `--src` so tip **C** lands in `nearmiss/db.jsonl`
    ([notes/nearmiss.md](notes/nearmiss.md)). **Commit `nearmiss/db.jsonl`** in the
    PR (same as sm64ds-decomp) so CI can put `div` on the public atlas. Do not
    replace a near-miss with an asm dump.
-6. **Bank** a true match (experimental provenance required):
+7. **Bank** a true match (experimental provenance required — EP `tools/bank.py`):
    ```bash
    python tools/bank.py --src src/arm9/….c --kind ai|human --author YOUR_GITHUB \
      --model … --reasoning … --harness … \
      --session-scope focused --batch-size 1
    ```
-7. **PR** one function or a small related family; note compiler version and
+8. **PR** one function or a small related family; note compiler version and
    address in the PR body.
+
+### Free / batch tools (sm64ds spine)
+
+These were ported from [sm64ds-decomp](https://github.com/tangosdev/sm64ds-decomp)
+and adapted to EP’s `arm9/` layout (base `0x02000000`):
+
+| Tool | Role |
+|------|------|
+| `tools/swarm.py` / `sweep.py` | Zero-token template tier across modules |
+| `tools/clone.py` / `paramclone.py` | Free match from already-matched skeletons |
+| `tools/worklist.py` | Pre-resolved context for agent fan-out |
+| `tools/triage.py` | Size the unmatched pile before LLM work |
+| `tools/nearmiss_db.py` | Best near-miss tip store (`nearmiss/db.jsonl`) |
+| `tools/agent_bank.py` | Verify-and-bank agent batch results (not provenance `bank.py`) |
+| `tools/m2c_draft.py` | Semantic draft via local `vendor/m2c` ([notes/m2c-setup.md](notes/m2c-setup.md)) |
+| `tools/permuter/` | decomp-permuter wrappers ([tools/permuter/README.md](tools/permuter/README.md)) |
+| `tools/ghidra/` + `ghidra_targets.py` | Local decompiler scaffolds ([notes/ghidra-scaffolds.md](notes/ghidra-scaffolds.md)) |
+| `tools/decomp_report.py` | Optional decomp.dev report (ROM-free) |
+| `tools/modules.py` / `names.py` / `relocs.py` | Module + symbol + reloc registry |
+
+`progress/` and `vendor/` stay gitignored (local ledgers, m2c, decomp-permuter).
 
 ### Chaos Viewer atlas (after merge to `main`)
 
@@ -204,8 +255,7 @@ python tools/bank.py --src src/arm9/NAME.c --kind ai \
   --session-scope focused --batch-size 1
 ```
 
-See [notes/proposal-logging-for-tango.md](notes/proposal-logging-for-tango.md)
-for the SM64DS-shaped design (who vs how, near-miss → atlas `div`).
+See [notes/match-provenance.md](notes/match-provenance.md) and [notes/nearmiss.md](notes/nearmiss.md) for who vs how and near-miss → atlas `div`.
 
 ## Chaos atlas (optional publish)
 
