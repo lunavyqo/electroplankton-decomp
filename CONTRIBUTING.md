@@ -238,7 +238,9 @@ Identity fields (required on new attempts):
 - `functionId` — atlas id (`module:0xaddr`)
 - `attemptId` — unique UUID for this try
 - `parentAttemptId` — node you built on, or `null`
-- `schemaVersion` / `loggedAt`
+- `schemaVersion` — `1`
+
+Do **not** log wall-clock times (`loggedAt` / `ts`) on attempts.
 
 See [notes/match-attempts.md](notes/match-attempts.md) and
 [notes/match-provenance.md](notes/match-provenance.md).

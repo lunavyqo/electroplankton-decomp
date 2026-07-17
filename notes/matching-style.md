@@ -58,7 +58,9 @@ Required identity (see [match-attempts.md](match-attempts.md)):
 | `functionId` | Atlas id `module:0xaddr` (stable) |
 | `attemptId` | Unique id for **this** try (UUID; never `a1`) |
 | `parentAttemptId` | Node you built on, or `null` for a new root |
-| `loggedAt` / `schemaVersion` | UTC time + schema `1` |
+| `schemaVersion` | `1` (bump only when meanings change) |
+
+Do **not** log wall-clock times (`loggedAt` / `ts`) — privacy.
 
 Tree shape (not a flat diary):
 
