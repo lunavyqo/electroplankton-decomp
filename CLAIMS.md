@@ -34,6 +34,8 @@ drop the claim.
 | arm9   | 0x02002950–0x020033ef | lunavyqo | 2026-07-16 | active | batch16: 13/16 MATCH; near: 2d70/2f8c/320c (1.2/sp2p3) |
 | arm9   | 0x02005888–0x02006153 | lunavyqo | 2026-07-17 | active | batch16: 15/16 MATCH; near: 5c20 FX interleave draft (1.2/sp2p3) |
 
+| arm9   | 0x02004068–0x0200493b | grok | 2026-07-17 | active | batch16: 13/16 MATCH; near: 44b0/4590/469c loop-addr (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
