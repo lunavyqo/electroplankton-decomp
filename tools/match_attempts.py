@@ -238,6 +238,11 @@ def normalize_attempt(rec: dict) -> dict:
         out["label"] = str(rec["label"]).strip()
     if rec.get("note"):
         out["note"] = str(rec["note"]).strip()
+    # Draft source trackers (independent booleans; lineage may inherit true).
+    if "usedNearMissDraft" in rec and rec["usedNearMissDraft"] is not None:
+        out["usedNearMissDraft"] = bool(rec["usedNearMissDraft"])
+    if "usedGhidraDraft" in rec and rec["usedGhidraDraft"] is not None:
+        out["usedGhidraDraft"] = bool(rec["usedGhidraDraft"])
 
     # base of work (attempt tree)
     base_in = rec.get("base")
