@@ -126,6 +126,20 @@ def main() -> None:
         dest="base_divergences",
         help="Score of the base you started from, if known",
     )
+    ap.add_argument(
+        "--used-near-miss-draft",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        dest="used_near_miss_draft",
+        help="This try (or lineage) used a near-miss / NONMATCHING tip",
+    )
+    ap.add_argument(
+        "--used-ghidra-draft",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        dest="used_ghidra_draft",
+        help="This try (or lineage) used a Ghidra scaffold",
+    )
     ap.add_argument("--note")
     ap.add_argument(
         "--stats",
@@ -191,6 +205,8 @@ def main() -> None:
             parent_attempt_id=args.parent_attempt_id,
             base_kind=args.base_kind,
             base_divergences=args.base_divergences,
+            used_near_miss_draft=args.used_near_miss_draft,
+            used_ghidra_draft=args.used_ghidra_draft,
         )
     except ProvenanceError as e:
         print(f"ERROR: {e}", file=sys.stderr)

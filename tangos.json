@@ -218,16 +218,253 @@
       "label": "Log attempt",
       "category": "logging",
       "readOnly": false,
-      "description": "Append one matching attempt (attempt tree node) to config/match_attempts.jsonl.",
-      "command": "{python} tools/log_attempt.py {flags}"
+      "description": "REQUIRED after every try: append one attempt-tree node with WHO/HOW. AI must pass model+reasoning+harness. matched only after verify; near_miss only when tip improves; else no_progress. No wall-clock times. Prefer --src on near_miss for tip C.",
+      "command": "{python} tools/log_attempt.py {flags}",
+      "args": [
+        {
+          "name": "func",
+          "type": "string",
+          "flag": "--func",
+          "required": true,
+          "description": "Function symbol name."
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "flag": "--module",
+          "description": "Module (arm9, ovNNN, \u2026)."
+        },
+        {
+          "name": "addr",
+          "type": "string",
+          "flag": "--addr",
+          "description": "Address (0x\u2026)."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "flag": "--status",
+          "required": true,
+          "description": "matched | near_miss | no_progress | compile_error | failed | skipped. matched only after verify MATCH; near_miss only when tip improves; else no_progress."
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "flag": "--kind",
+          "description": "ai | human (default ai)."
+        },
+        {
+          "name": "model",
+          "type": "string",
+          "flag": "--model",
+          "description": "AI model slug (required for kind=ai), e.g. grok-4.5."
+        },
+        {
+          "name": "reasoning",
+          "type": "string",
+          "flag": "--reasoning",
+          "description": "AI reasoning level (required for kind=ai), e.g. high."
+        },
+        {
+          "name": "harness",
+          "type": "string",
+          "flag": "--harness",
+          "description": "AI harness slug (required for kind=ai), e.g. grok-build."
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "flag": "--author",
+          "description": "GitHub login credit (WHO). Not inside matchProvenance."
+        },
+        {
+          "name": "session_scope",
+          "type": "string",
+          "flag": "--session-scope",
+          "required": true,
+          "description": "focused (solo) or batch (multi-function session)."
+        },
+        {
+          "name": "batch_size",
+          "type": "number",
+          "flag": "--batch-size",
+          "description": "1 if focused; N\u22652 if batch."
+        },
+        {
+          "name": "divergences",
+          "type": "number",
+          "flag": "--divergences",
+          "description": "Byte divergences for near_miss."
+        },
+        {
+          "name": "prev_best",
+          "type": "number",
+          "flag": "--prev-best",
+          "description": "Previous best divergences (for improvedNearMiss)."
+        },
+        {
+          "name": "parent_attempt_id",
+          "type": "string",
+          "flag": "--parent-attempt-id",
+          "description": "Prior attemptId you built on (omit for root)."
+        },
+        {
+          "name": "attempt_id",
+          "type": "string",
+          "flag": "--attempt-id",
+          "description": "Unique attemptId (UUID hex); generated if omitted."
+        },
+        {
+          "name": "base_kind",
+          "type": "string",
+          "flag": "--base-kind",
+          "description": "scratch | previous_attempt | near_miss_draft | matched_sibling."
+        },
+        {
+          "name": "base_divergences",
+          "type": "number",
+          "flag": "--base-divergences",
+          "description": "Score of the base you started from."
+        },
+        {
+          "name": "src",
+          "type": "string",
+          "flag": "--src",
+          "description": "Path to attempt C; for near_miss also upserts tip C into nearmiss/db.jsonl."
+        },
+        {
+          "name": "used_near_miss_draft",
+          "type": "boolean",
+          "flag": "--used-near-miss-draft",
+          "description": "Set when this try or lineage used a near-miss tip."
+        },
+        {
+          "name": "used_ghidra_draft",
+          "type": "boolean",
+          "flag": "--used-ghidra-draft",
+          "description": "Set when this try or lineage used Ghidra scaffold."
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "flag": "--note",
+          "description": "Optional short note."
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "flag": "--label",
+          "description": "Optional wave/batch label."
+        }
+      ]
     },
     {
       "id": "bank",
       "label": "Bank match",
       "category": "logging",
       "readOnly": false,
-      "description": "Bank a verified match (provenance required for AI).",
-      "command": "{python} tools/bank.py {flags}"
+      "description": "Bank a verified match + provenance (AI: model+reasoning+harness required). Not a new try \u2014 call log_attempt for the try itself; bank promotes C + final how.",
+      "command": "{python} tools/bank.py {flags}",
+      "args": [
+        {
+          "name": "src",
+          "type": "string",
+          "flag": "--src",
+          "description": "Already-promoted source under src/."
+        },
+        {
+          "name": "c",
+          "type": "string",
+          "flag": "--c",
+          "description": "Candidate C to verify / promote."
+        },
+        {
+          "name": "func",
+          "type": "string",
+          "flag": "--func",
+          "description": "Function symbol (default: stem of --c/--src)."
+        },
+        {
+          "name": "addr",
+          "type": "string",
+          "flag": "--addr",
+          "description": "Address (0x\u2026)."
+        },
+        {
+          "name": "size",
+          "type": "string",
+          "flag": "--size",
+          "description": "Size (0x\u2026)."
+        },
+        {
+          "name": "module",
+          "type": "string",
+          "flag": "--module",
+          "description": "Module label."
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "flag": "--kind",
+          "required": true,
+          "description": "ai | human."
+        },
+        {
+          "name": "model",
+          "type": "string",
+          "flag": "--model",
+          "description": "AI model slug (required for kind=ai)."
+        },
+        {
+          "name": "reasoning",
+          "type": "string",
+          "flag": "--reasoning",
+          "description": "AI reasoning (required for kind=ai)."
+        },
+        {
+          "name": "harness",
+          "type": "string",
+          "flag": "--harness",
+          "description": "AI harness slug (required for kind=ai)."
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "flag": "--author",
+          "description": "Optional WHO credit (GitHub login). Default: git first-adder."
+        },
+        {
+          "name": "session_scope",
+          "type": "string",
+          "flag": "--session-scope",
+          "required": true,
+          "description": "focused | batch."
+        },
+        {
+          "name": "batch_size",
+          "type": "number",
+          "flag": "--batch-size",
+          "description": "1 if focused; \u22652 if batch."
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "flag": "--note",
+          "description": "Optional note (human how only)."
+        },
+        {
+          "name": "promote",
+          "type": "boolean",
+          "flag": "--promote",
+          "description": "Copy --c into src/ after verify."
+        },
+        {
+          "name": "no_verify",
+          "type": "boolean",
+          "flag": "--no-verify",
+          "description": "Skip match.py (operator asserts already matched)."
+        }
+      ]
     },
     {
       "id": "chaos_db",
