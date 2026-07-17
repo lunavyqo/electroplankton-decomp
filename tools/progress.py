@@ -35,8 +35,11 @@ def module_label(sym_path: pathlib.Path):
     return m.group(1) if m else None
 
 
-def bar(p: float, width: int = 30) -> str:
-    filled = int(width * p / 100)
+def bar(done: int, tot: int, width: int = 30) -> str:
+    """SM64DS-style block bar (same glyph fill as sm64ds-decomp tools/progress.py)."""
+    filled = round(done / tot * width) if tot else 0
+    if done and filled == 0:
+        filled = 1
     return "█" * filled + "░" * (width - filled)
 
 
@@ -69,28 +72,39 @@ def scan_src() -> tuple[int, int, int, int]:
 
 
 def from_db(path: pathlib.Path) -> tuple[int, int, int, int]:
-    """Read counts from chaos-db.json so README and atlas share one number."""
+    """Read counts from chaos-db.json so README and atlas share one number.
+
+    Skips synthetic atlas-only fixtures (module demo / attempt-history gallery).
+    """
     db = json.loads(path.read_text(encoding="utf-8"))
     fns = db["functions"] if isinstance(db, dict) else db
-    st = db.get("stats", {}) if isinstance(db, dict) else {}
-    n = int(st.get("totalFunctions") or len(fns))
-    done_n = st.get("matchedFunctions")
-    if done_n is None:
-        done_n = sum(1 for f in fns if f.get("matched"))
-    tb = int(st.get("totalBytes") or sum(int(f.get("size", 0)) for f in fns))
-    done_b = st.get("matchedBytes")
-    if done_b is None:
-        done_b = sum(int(f.get("size", 0)) for f in fns if f.get("matched"))
+    real = [
+        f
+        for f in fns
+        if f.get("module") != "demo"
+        and f.get("id") != "demo:0x0"
+        and f.get("name") != "func_attempt_history_gallery"
+    ]
+    n = len(real)
+    done_n = sum(1 for f in real if f.get("matched"))
+    tb = sum(int(f.get("size", 0)) for f in real)
+    done_b = sum(int(f.get("size", 0)) for f in real if f.get("matched"))
     return int(done_n), n, int(done_b), tb
 
 
 def bar_block(done_n: int, n: int, done_b: int, tb: int) -> str:
-    pf = 100.0 * done_n / n if n else 0.0
-    pb = 100.0 * done_b / tb if tb else 0.0
-    return (
-        f"Functions  {bar(pf)}  {pf:5.1f}%   {done_n:,} / {n:,}\n"
-        f"Code size  {bar(pb)}  {pb:5.1f}%   {done_b:,} / {tb:,} bytes"
-    )
+    """Fenced ``` block under README ## Progress — same shape as sm64ds-decomp."""
+    lines = [
+        "```",
+        f"Functions  {bar(done_n, n)}  {100 * done_n / n:4.1f}%   {done_n:,} / {n:,}"
+        if n
+        else f"Functions  {bar(0, 1)}   0.0%   0 / 0",
+        f"Code size  {bar(done_b, tb)}  {100 * done_b / tb:4.1f}%   {done_b:,} / {tb:,} bytes"
+        if tb
+        else f"Code size  {bar(0, 1)}   0.0%   0 / 0 bytes",
+        "```",
+    ]
+    return "\n".join(lines)
 
 
 def write_readme(done_n: int, n: int, done_b: int, tb: int) -> bool:
