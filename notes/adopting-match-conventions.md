@@ -170,3 +170,11 @@ Console calls `log_attempt` / stamp via `tangos.json` tool entries.
 
 Questions / divergence from SM64DS spine: discuss with the maintainer before making
 attempt-tree logging mandatory on SM64DS.
+
+
+## Ready-made SM64DS fork branch (lunavyqo only)
+
+Full tool port (not upstream):
+https://github.com/lunavyqo/sm64ds-decomp/tree/system/match-logging
+
+Includes `log_attempt`, `stamp_provenance`, empty jsonl stores, `matchConventions.attemptTree=true`.

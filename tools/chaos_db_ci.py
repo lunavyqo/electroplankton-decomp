@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import pathlib
 import re
 import sys
@@ -244,21 +245,24 @@ def main() -> None:
             functions.append(rec)
 
     # Synthetic attempt-history gallery (UI fixture — not a ROM function).
-    try:
-        from attempt_history_gallery import gallery_function_record  # noqa: E402
+    # Opt-in only: EP_ATLAS_GALLERY=1 (keeps live atlas free of demo:0x0 by default).
+    if os.environ.get("EP_ATLAS_GALLERY", "").strip() in ("1", "true", "yes"):
+        try:
+            from attempt_history_gallery import gallery_function_record  # noqa: E402
 
-        gallery_fn = gallery_function_record()
-        if not any(f.get("id") == gallery_fn["id"] for f in functions):
-            functions.append(gallery_fn)
-            size = int(gallery_fn.get("size") or 0)
-            total_b += size
-            if gallery_fn.get("matched"):
-                matched_n += 1
-                matched_b += size
-            elif gallery_fn.get("div") is not None:
-                with_div += 1
-    except Exception as e:
-        print(f"WARN: attempt history gallery inject skipped: {e}", file=sys.stderr)
+            gallery_fn = gallery_function_record()
+            if not any(f.get("id") == gallery_fn["id"] for f in functions):
+                functions.append(gallery_fn)
+                size = int(gallery_fn.get("size") or 0)
+                total_b += size
+                if gallery_fn.get("matched"):
+                    matched_n += 1
+                    matched_b += size
+                elif gallery_fn.get("div") is not None:
+                    with_div += 1
+                print("atlas: injected attempt-history gallery (EP_ATLAS_GALLERY=1)")
+        except Exception as e:
+            print(f"WARN: attempt history gallery inject skipped: {e}", file=sys.stderr)
 
     project = None
     pc = repo / "tools" / "chaosviewer.config.json"
