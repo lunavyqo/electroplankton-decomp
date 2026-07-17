@@ -150,11 +150,29 @@ python tools/bank.py --src src/arm9/func_….c --kind ai --author you \
   --session-scope focused --batch-size 1
 ```
 
+## Attempt-history gallery (UI fixture)
+
+Synthetic function **`func_attempt_history_gallery`** (`functionId` = `demo:0x0`)
+ships a fixed attempt tree that exercises every status, base kind, draft flag,
+and multi-root shape the Chaos Viewer try history can show. Not a real ROM
+function — `chaos_db_ci.py` injects it into the atlas; rows live in
+`config/match_attempts.jsonl`.
+
+```bash
+# regenerate / upsert gallery rows
+python tools/attempt_history_gallery.py --sync
+
+# coverage test
+python tools/test_attempt_history_gallery.py
+```
+
 ## Tests
 
 ```bash
 python tools/test_match_attempts.py
+python tools/test_attempt_history_gallery.py
 ```
+
 
 ## Policy
 

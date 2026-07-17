@@ -243,6 +243,19 @@ def main() -> None:
                     with_div += 1
             functions.append(rec)
 
+    # Synthetic attempt-history gallery (UI fixture — not a ROM function).
+    try:
+        from attempt_history_gallery import gallery_function_record  # noqa: E402
+
+        gallery_fn = gallery_function_record()
+        if not any(f.get("id") == gallery_fn["id"] for f in functions):
+            functions.append(gallery_fn)
+            total_b += int(gallery_fn.get("size") or 0)
+            if gallery_fn.get("div") is not None:
+                with_div += 1
+    except Exception as e:
+        print(f"WARN: attempt history gallery inject skipped: {e}", file=sys.stderr)
+
     project = None
     pc = repo / "tools" / "chaosviewer.config.json"
     if pc.is_file():
