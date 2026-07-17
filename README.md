@@ -11,8 +11,8 @@ machine only.
 ## Progress
 
 <!-- progress:start -->
-Functions  ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░    8.3%   162 / 1,950
-Code size  ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░    7.3%   26,252 / 359,462 bytes
+Functions  ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░    8.6%   168 / 1,950
+Code size  ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░    7.5%   27,000 / 359,462 bytes
 <!-- progress:end -->
 
 Progress map is **Chaos Viewer** (not a static treemap). Atlas is regenerated on
