@@ -80,8 +80,12 @@ class AttemptHistoryGallery(unittest.TestCase):
         fn = gallery_function_record()
         self.assertEqual(fn["id"], GALLERY_FUNCTION_ID)
         self.assertEqual(fn["name"], GALLERY_NAME)
-        self.assertFalse(fn["matched"])
-        self.assertIn("div", fn)
+        # Tree ends in matched → atlas must show MATCHED, not NEAR-MISS.
+        self.assertTrue(fn["matched"])
+        self.assertNotIn("div", fn)
+        self.assertEqual(fn.get("matchProvenance", {}).get("model"), "grok-4.5")
+        matched_rows = [r for r in gallery_rows() if r["status"] == "matched"]
+        self.assertEqual(len(matched_rows), 1)
 
 
 if __name__ == "__main__":

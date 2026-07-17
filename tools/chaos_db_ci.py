@@ -250,8 +250,12 @@ def main() -> None:
         gallery_fn = gallery_function_record()
         if not any(f.get("id") == gallery_fn["id"] for f in functions):
             functions.append(gallery_fn)
-            total_b += int(gallery_fn.get("size") or 0)
-            if gallery_fn.get("div") is not None:
+            size = int(gallery_fn.get("size") or 0)
+            total_b += size
+            if gallery_fn.get("matched"):
+                matched_n += 1
+                matched_b += size
+            elif gallery_fn.get("div") is not None:
                 with_div += 1
     except Exception as e:
         print(f"WARN: attempt history gallery inject skipped: {e}", file=sys.stderr)
