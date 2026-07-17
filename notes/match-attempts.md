@@ -186,3 +186,7 @@ operators ingest with `log_attempt.py` (or future auto-parse).
 
 Use `label` for mass-run waves (`wave-cheap-01`, `wave-mid-02`) so later queries
 can filter by model tier without re-reading chat history.
+
+## Other decomps
+
+Adopting this stack on SM64DS or another repo: [adopting-match-conventions.md](adopting-match-conventions.md).
