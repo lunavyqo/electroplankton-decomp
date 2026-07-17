@@ -99,13 +99,16 @@ still sends them.
 | Value | Meaning |
 |-------|---------|
 | `matched` | Verify reported MATCH (also written by `bank.py`) |
-| `near_miss` | Scored draft exists (set `divergences`) |
-| `no_progress` | Tried; no useful score / no improvement |
+| `near_miss` | Scored draft that is the (or a new) tip — set `divergences` |
+| `no_progress` | Tried; no useful score, **or** score did not beat best tip |
 | `compile_error` | Did not compile |
 | `failed` | Other failure |
 | `skipped` | Deliberately skipped |
 
-`improvedNearMiss` is true when `divergences < prevBestDivergences` (or set explicitly).
+Status is **chosen when logging** (not auto-derived from bytes).  
+`improvedNearMiss` is true when `divergences < prevBestDivergences` (or set
+explicitly). If the try does not improve the tip, use **`no_progress`** (not
+`near_miss` with the same div and `improvedNearMiss: false`).
 
 **Do not** put full C sources in the attempt log (size). Use `srcPath` to a
 scratch file, and for a scored near-miss pass `--src` so

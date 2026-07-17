@@ -47,12 +47,16 @@ def _aid(n: int) -> str:
 #   ├─ a003  compile_error
 #   ├─ a004  failed
 #   └─ a005  near_miss div=12 improved  usedNearMiss
-#      ├─ a006  near_miss div=12  NOT improved             [dead-end tip]
+#      ├─ a006  no_progress  (same tip, no score win)     [dead-end tip]
 #      └─ a007  near_miss div=4 improved  usedGhidra+nm
 #         └─ a008  matched                                [ai batch]
 #
 #   a009  skipped  root  base=matched_sibling             [human focused]
 #   a010  no_progress  root  base=near_miss_draft         [ai batch]
+#
+# Status is set by the logger (not inferred from div). improvedNearMiss is
+# true only when divergences < prevBestDivergences. A try that does not beat
+# the best tip is no_progress — not near_miss with the same div.
 # ---------------------------------------------------------------------------
 
 def gallery_rows() -> list[dict[str, Any]]:
@@ -165,11 +169,12 @@ def gallery_rows() -> list[dict[str, Any]]:
             srcPath="scratch/gallery/a005.c",
             note="gallery: improved near-miss + usedNearMissDraft",
         ),
-        # Non-improving tip under improved node
+        # Dead-end under improved tip: tried again, score did not beat best
+        # (status=no_progress — not near_miss with the same div).
         base_row(
             attemptId=A(6),
             parentAttemptId=A(5),
-            status="near_miss",
+            status="no_progress",
             kind="ai",
             model="grok-4.5",
             reasoning="xhigh",
@@ -177,12 +182,12 @@ def gallery_rows() -> list[dict[str, Any]]:
             sessionScope="focused",
             batchSize=1,
             base={"kind": "near_miss_draft", "attemptId": A(5), "divergences": 12},
-            divergences=12,
+            divergences=None,
             prevBestDivergences=12,
             improvedNearMiss=False,
             usedNearMissDraft=True,
             usedGhidraDraft=False,
-            note="gallery: near_miss no improvement",
+            note="gallery: no_progress (did not beat best tip)",
         ),
         # Ghidra + near-miss lineage
         base_row(
