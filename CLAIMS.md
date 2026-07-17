@@ -32,6 +32,7 @@ drop the claim.
 | arm9   | 0x02054e28–0x02054e4f | lunavyqo | 2026-07-15 | done | batch16: copysign double 54e28 MATCH 1.2/sp2p3 |
 | arm9   | 0x02051f8c–0x020526ff + softfloat 0x02055af0–0x02055c0f | lunavyqo | 2026-07-15 | active | batch16 cart-pm: 6/16 MATCH (51f8c,52010,52138,52510,52568,526fc); near: 52908 div2, 52438/526a0 div6; softfloat clz wall |
 | arm9   | 0x02002950–0x020033ef | lunavyqo | 2026-07-16 | active | batch16: 13/16 MATCH; near: 2d70/2f8c/320c (1.2/sp2p3) |
+| arm9   | 0x02005888–0x02006153 | lunavyqo | 2026-07-17 | active | batch16: 15/16 MATCH; near: 5c20 FX interleave draft (1.2/sp2p3) |
 
 ## How to claim
 
