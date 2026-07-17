@@ -190,3 +190,7 @@ can filter by model tier without re-reading chat history.
 ## Other decomps
 
 Adopting this stack on SM64DS or another repo: [adopting-match-conventions.md](adopting-match-conventions.md).
+
+### Attempt-history gallery in atlas
+
+By default the synthetic gallery function is **not** injected into `chaos-db.json`. Set `EP_ATLAS_GALLERY=1` when generating the atlas to include it for UI QA.
