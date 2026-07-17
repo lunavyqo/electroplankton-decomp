@@ -40,3 +40,4 @@ drop the claim.
    and the address range you will work.
 3. Prefer a small commit that only updates this file.
 4. Work only inside your claimed range until you release it.
+| arm9   | 0x020036ec–0x02004067 | lunavyqo | 2026-07-17 | active | batch16: 13/16 MATCH; near: 36ec/387c/3d68 regalloc+pool (1.2/sp2p3) |
