@@ -67,12 +67,17 @@ asked to PR upstream):
 
 Only if you want every try (including `no_progress`) in a reconstructable tree.
 
+**These Python tools are required** — `matchConventions` alone does nothing without them.
+Console calls `log_attempt` / stamp via `tangos.json` tool entries.
+
 1. **Copy tools** from this repo (adapt paths if needed):
 
    - `tools/match_attempts.py`
-   - `tools/log_attempt.py` (includes draft-flag CLI)
-   - `tools/match_provenance.py` + bank path if you want final how-records
-   - tests: `tools/test_match_attempts.py`
+   - `tools/log_attempt.py` (includes draft-flag CLI; wire tip C into `nearmiss/db.jsonl`)
+   - `tools/match_provenance.py`
+   - **Do not overwrite SM64DS `tools/bank.py`** (fan-out banker). Ship EP bank as
+     `tools/stamp_provenance.py` (final how only).
+   - tests: `tools/test_match_attempts.py`, `tools/test_match_provenance.py`
 
 2. **Create** empty `config/match_attempts.jsonl` (and optionally
    `config/match_provenance.jsonl`).
