@@ -38,6 +38,8 @@ drop the claim.
 
 | arm9   | 0x0201ac00–0x0201c6c0 | lunavyqo | 2026-07-17 | active | batch16: 6/16 MATCH (ac00,b51c,b54c,b684,b690,c228); near: c0f0/c2b0/bd58/bf24 (1.2/sp2p3) |
 
+| arm9   | 0x02027fb4–0x0202904f | lunavyqo | 2026-07-18 | active | batch16: 12/16 MATCH (27fb4..28f68 cluster); near: 28560 div24, 283b4/28190/28698 drafts (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
