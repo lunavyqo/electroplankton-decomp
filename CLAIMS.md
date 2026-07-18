@@ -7,6 +7,7 @@ drop the claim.
 
 | Module | Range (inclusive) | Claimant | Date (UTC) | Status | Notes |
 |--------|-------------------|----------|------------|--------|-------|
+| arm9   | mixed 0x18 leaves (0x02027074…0x02050238) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH size-0x18 helpers (tail wrappers, fill/copy, spin-waits; 1.2/sp2p3) |
 | arm9   | 0x02050894–0x02050d2f | lunavyqo | 2026-07-16 | active | batch8: 7/8 MATCH (list helpers + power flag); near: 50a48 div62 regalloc (1.2/sp2p3) |
 | arm9   | 0x02000eb4–0x02001133 | grok | 2026-07-12 | done | heap/file cluster 0eb4-10d8 MATCH 1.2/sp2p3 |
 | arm9   | 0x02001a64–0x02001b43 | grok | 2026-07-13 | done | tail-call wrappers 1a64-1b28 MATCH 1.2/sp2p3 |
