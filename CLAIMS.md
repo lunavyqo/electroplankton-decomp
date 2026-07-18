@@ -7,6 +7,7 @@ drop the claim.
 
 | Module | Range (inclusive) | Claimant | Date (UTC) | Status | Notes |
 |--------|-------------------|----------|------------|--------|-------|
+| arm9   | mixed size-0x24 leaves (0x0203d12c…0x0204c220) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH size-0x24 helpers (cache MCR, list, wrappers, flag set; 1.2/sp2p3) |
 | arm9   | mixed size-0x20/0x24 leaves (0x020025e8…0x0204f4a0) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH destroy wrappers, LCG/counter, range check, tailcalls (1.2/sp2p3) |
 | arm9   | mixed size-0x20 destroy/init (0x02020ea8…0x0203d518) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH size-0x20 destroy wrappers + field inits (1.2/sp2p3) |
 | arm9   | mixed size-0x20 leaves (0x02009508…0x0204bf34) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH size-0x20 helpers (copy, init, destroy wrappers, angle wrap, bit set; 1.2/sp2p3) |
