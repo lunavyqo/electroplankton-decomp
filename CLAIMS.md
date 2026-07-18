@@ -46,3 +46,5 @@ drop the claim.
 3. Prefer a small commit that only updates this file.
 4. Work only inside your claimed range until you release it.
 | arm9   | 0x020036ec–0x02004067 | lunavyqo | 2026-07-17 | active | batch16: 13/16 MATCH; near: 36ec/387c/3d68 regalloc+pool (1.2/sp2p3) |
+
+| arm9   | 0x0200493c–0x0200539f | lunavyqo | 2026-07-18 | active | batch16: 10/16 MATCH; near: 4ba4/4f08/5024/51ec/5264/528c (1.2/sp2p3) |
