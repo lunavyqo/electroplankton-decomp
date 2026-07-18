@@ -42,6 +42,8 @@ drop the claim.
 
 | arm9   | 0x02001558–0x020019cb | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH heap/async queue cluster 1558-19c0 (1.2/sp2p3) |
 
+| arm9   | 0x0203e340–0x0203f1bc | lunavyqo | 2026-07-18 | active | batch16: 13/16 MATCH (e340–ed6c cluster); near: e9f8 div11, eba4 div20; f1bc deferred (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
