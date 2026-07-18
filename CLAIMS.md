@@ -46,6 +46,8 @@ drop the claim.
 
 | arm9   | 0x02000070–0x02000a5b | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH BIOS SWI wrappers + AutoloadCallback (1.2/sp2p3; thumb #pragma + swi) |
 
+| arm9   | VBlankIntrWait/WaitByLoop + 14 empty ARM stubs | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH (svc #5/#3 thumb + bx-lr stubs 00b44…3b6bc; 1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
