@@ -66,3 +66,5 @@ drop the claim.
 | arm9   | 0x0200493c–0x0200539f | lunavyqo | 2026-07-18 | active | batch16: 10/16 MATCH; near: 4ba4/4f08/5024/51ec/5264/528c (1.2/sp2p3) |
 
 | arm9   | 0x020019cc, 0x02009300–0x02009333, 0x0200a2f8, 0x0200a704–0x0200a7ff, 0x0200b02c–0x0200b083, 0x020513c4 | lunavyqo | 2026-07-18 | done | batch16 simple accessors/trampolines: 16/16 MATCH 1.2/sp2p3 |
+
+| arm9   | 0x0200b168–0x0200b18f, 0x0200c860–0x0200c86b, 0x0201625c–0x02016267, 0x02017210–0x0201721b, 0x02019678–0x02019683, 0x0201df10–0x0201df1b, 0x0201ea34–0x0201ea3f, 0x02021c40–0x02021c4b, 0x02023bf0–0x02023bfb, 0x020256f0–0x020256fb, 0x02025c84–0x02025ca7, 0x02026ea8–0x02026eb3 | lunavyqo | 2026-07-18 | done | batch16 simple accessors/trampolines-2: 16/16 MATCH 1.2/sp2p3 |
