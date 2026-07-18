@@ -52,6 +52,8 @@ drop the claim.
 | arm9   | simple field accessors (mixed: 099e0…26e98) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH — 9 new getters/setters + 7 re-verified prior leaves (1.2/sp2p3) |
 | arm9   | simple field accessors (mixed: 26ea0…2f814) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH — 8-byte getters/setters (offsets 0x4…0x9a8, one u16) (1.2/sp2p3) |
 
+| arm9   | simple leaves (mixed: 315f8…4f700) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH — field getters/setters, const leaves, clz/mcr/swp wrappers (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
