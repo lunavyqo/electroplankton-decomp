@@ -48,6 +48,8 @@ drop the claim.
 
 | arm9   | VBlankIntrWait/WaitByLoop + 14 empty ARM stubs | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH (svc #5/#3 thumb + bx-lr stubs 00b44…3b6bc; 1.2/sp2p3) |
 
+| arm9   | Mod + stubs/setters/const leaves (mixed addrs) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH — Mod svc#9 thumb, 6 empty bx-lr, 3 const, 1 epilogue, 5 field setters (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
