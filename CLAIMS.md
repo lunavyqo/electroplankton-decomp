@@ -54,6 +54,8 @@ drop the claim.
 
 | arm9   | simple leaves (mixed: 315f8…4f700) | lunavyqo | 2026-07-18 | done | batch16: 16/16 MATCH — field getters/setters, const leaves, clz/mcr/swp wrappers (1.2/sp2p3) |
 
+| arm9   | 0x02038140–0x02038157, 0x02039794–0x0203979f, 0x0203a73c–0x0203a747, 0x0203baf4–0x0203baff, 0x0203d3d0–0x0203d3db, 0x0203d43c–0x0203d447, 0x02042060–0x0204206b, 0x0204224c–0x02042257, 0x02042294–0x0204229f, 0x02042ca0–0x02042cab, 0x02043118–0x02043123, 0x0204407c–0x0204409f, 0x020493e0–0x020493eb | lunavyqo | 2026-07-18 | done | batch16: 15/16 MATCH simple accessors/trampolines-4; near: 493e0 div2 r1-vs-ip regperm (1.2/sp2p3) |
+
 ## How to claim
 
 1. Pull latest `main`.
